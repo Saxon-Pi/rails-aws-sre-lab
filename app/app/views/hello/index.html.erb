@@ -1,3 +1,11 @@
-<h1>Hello Rails!</h1>
+<h1><%= @message %></h1>
 
-<p>My first Ruby on Rails page.</p>
+<p>Name: <%= @name %></p>
+
+<h2>Technologies</h2>
+
+<ul>
+    <% @technologies.each do |technology| %>
+        <li><%= technology %></li>
+    <% end %>
+</ul>
