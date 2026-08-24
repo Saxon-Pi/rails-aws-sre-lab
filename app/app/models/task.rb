@@ -6,5 +6,6 @@ task.rb: Task というデータの扱い方を定義する
 =end
 
 class Task < ApplicationRecord
-#  Rails側で tasksテーブルを操作するための Model
+# Rails側で tasksテーブルを操作するための Model
+# -> CreateTasksのMigrationで作った tasks テーブルを、Task Modelを通して操作する
 end
