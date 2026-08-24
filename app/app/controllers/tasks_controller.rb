@@ -21,6 +21,11 @@ class TasksController < ApplicationController
     end 
   end
 
+  def show
+    # GET /tasks/2 なら id=2 のレコードを抽出する
+    @task = Task.find(params[:id])
+  end
+
   private
 
   # params イメージ

@@ -7,7 +7,9 @@
 <ul>
   <% @tasks.each do |task| %>
     <li>
-      <strong><%= task.title %></strong>
+      <strong>
+        <a href="/tasks/<%= task.id %>"><%= task.title %></a>
+      </strong>
       - <%= task.description %>
       [<%= task.status %>]
     </li>
