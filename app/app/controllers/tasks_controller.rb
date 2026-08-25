@@ -40,6 +40,16 @@ class TasksController < ApplicationController
     end
   end
 
+  def destroy
+    @task = Task.find(params[:id])
+
+    if @task.delete
+      redirect_to "/tasks"
+    else
+      render :edit, status: :unprocessable_entity
+    end
+  end
+
   private
 
   # params イメージ

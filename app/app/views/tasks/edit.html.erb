@@ -1,5 +1,10 @@
 <h1>Edit Task</h1>
 
+<%= button_to "Delete",
+    "/tasks/#{@task.id}",
+    method: :delete
+%>
+
 <%= form_with model: @task, url: "/tasks/#{@task.id}", method: :patch do |form| %>
   <div>
     <%= form.label :title %>
