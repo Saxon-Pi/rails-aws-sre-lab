@@ -1,6 +1,10 @@
 <h1><%= @task.title %></h1>
 
 <p>
+  <a href="/tasks/<%= @task.id %>/edit">Edit</a>
+</p>
+
+<p>
   <strong>Description:</strong>
   <%= @task.description %>
 </p>
