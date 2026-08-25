@@ -1,5 +1,17 @@
 <h1>Edit Task</h1>
 
+<% if @task.errors.any? %>
+  <div>
+    <h2>入力内容にエラーがあります</h2>
+
+    <ul>
+      <% @task.errors.full_messages.each do |message| %>
+        <li><%= message %></li>
+      <% end %>
+    </ul>
+  </div>
+<% end %>
+
 <%= button_to "Delete",
     "/tasks/#{@task.id}",
     method: :delete
