@@ -13,6 +13,7 @@ Ruby on Rails アプリケーションを AWS 上で構築・運用しながら�
 - [技術スタック](#技術スタック)
 - [ロードマップ](#ロードマップ)
 - [最終ゴール](#最終ゴール)
+- [Documents](#documents)
 
 ---
 
@@ -256,5 +257,11 @@ Prevent
 - Incident Response
 
 このチェックリストを、新しい AWS 環境を確認するときの実践的なレビュー基準として利用できる状態を目指す
+
+---
+
+## Documents
+
+- [01. Ruby on Rails 基礎](docs/01_rails_basics.md)
 
 ---

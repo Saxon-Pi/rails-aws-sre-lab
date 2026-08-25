@@ -1,0 +1,11 @@
+<h1><%= @message %></h1>
+
+<p>Name: <%= @name %></p>
+
+<h2>Technologies</h2>
+
+<ul>
+    <% @technologies.each do |technology| %>
+        <li><%= technology %></li>
+    <% end %>
+</ul>
