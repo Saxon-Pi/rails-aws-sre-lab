@@ -1,17 +1,4 @@
 // =====================================================
-// ECR
-// =====================================================
-
-resource "aws_ecr_repository" "rails_app" {
-  name                 = var.ecr_repository_name
-  image_tag_mutability = "IMMUTABLE"
-
-  image_scanning_configuration {
-    scan_on_push = true
-  }
-}
-
-// =====================================================
 // VPC
 // =====================================================
 
@@ -146,24 +133,6 @@ resource "aws_vpc_endpoint" "s3" {
   }
 }
 
-resource "aws_security_group" "vpce" {
-  name        = "rails-aws-sre-lab-vpce-sg"
-  description = "Security group for VPC interface endpoints"
-  vpc_id      = aws_vpc.main.id
-
-  ingress {
-    description = "HTTPS from VPC"
-    from_port   = 443
-    to_port     = 443
-    protocol    = "tcp"
-    cidr_blocks = [aws_vpc.main.cidr_block]
-  }
-
-  tags = {
-    Name = "rails-aws-sre-lab-vpce-sg"
-  }
-}
-
 resource "aws_vpc_endpoint" "ecr_api" {
   vpc_id              = aws_vpc.main.id
   service_name        = "com.amazonaws.ap-northeast-1.ecr.api"
@@ -201,5 +170,25 @@ resource "aws_vpc_endpoint" "ecr_dkr" {
 
   tags = {
     Name = "rails-aws-sre-lab-ecr-dkr-endpoint"
+  }
+}
+
+resource "aws_vpc_endpoint" "logs" {
+  vpc_id              = aws_vpc.main.id
+  service_name        = "com.amazonaws.ap-northeast-1.logs"
+  vpc_endpoint_type   = "Interface"
+  private_dns_enabled = true
+
+  subnet_ids = [
+    aws_subnet.private_1.id,
+    aws_subnet.private_2.id
+  ]
+
+  security_group_ids = [
+    aws_security_group.vpce.id
+  ]
+
+  tags = {
+    Name = "rails-aws-sre-lab-logs-endpoint"
   }
 }
