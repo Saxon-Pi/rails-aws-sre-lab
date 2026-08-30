@@ -192,3 +192,23 @@ resource "aws_vpc_endpoint" "logs" {
     Name = "rails-aws-sre-lab-logs-endpoint"
   }
 }
+
+resource "aws_vpc_endpoint" "secretsmanager" {
+  vpc_id              = aws_vpc.main.id
+  service_name        = "com.amazonaws.ap-northeast-1.secretsmanager"
+  vpc_endpoint_type   = "Interface"
+  private_dns_enabled = true
+
+  subnet_ids = [
+    aws_subnet.private_1.id,
+    aws_subnet.private_2.id
+  ]
+
+  security_group_ids = [
+    aws_security_group.vpce.id
+  ]
+
+  tags = {
+    Name = "rails-aws-sre-lab-secretsmanager-endpoint"
+  }
+}

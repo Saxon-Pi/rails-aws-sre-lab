@@ -54,6 +54,29 @@ resource "aws_ecs_task_definition" "rails" {
           "awslogs-stream-prefix" = "rails"
         }
       }
+
+      environment = [
+        {
+          name  = "DB_HOST"
+          value = aws_db_instance.postgres.address
+        },
+        {
+          name  = "DB_PORT"
+          value = "5432"
+        },
+        {
+          name  = "DB_USER"
+          value = "app"
+        }
+      ]
+
+      secrets = [
+        {
+          name      = "DB_PASSWORD"
+          valueFrom = "${aws_db_instance.postgres.master_user_secret[0].secret_arn}:password::"
+        }
+      ]
+
     }
   ])
 

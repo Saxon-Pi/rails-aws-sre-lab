@@ -52,6 +52,25 @@ resource "aws_security_group" "ecs" {
   }
 }
 
+# RDS
+resource "aws_security_group" "rds" {
+  name        = "rails-aws-sre-lab-rds-sg"
+  description = "Security group for RDS PostgreSQL"
+  vpc_id      = aws_vpc.main.id
+
+  ingress {
+    description     = "PostgreSQL from ECS"
+    from_port       = 5432
+    to_port         = 5432
+    protocol        = "tcp"
+    security_groups = [aws_security_group.ecs.id]
+  }
+
+  tags = {
+    Name = "rails-aws-sre-lab-rds-sg"
+  }
+}
+
 # VPC Endpoint
 resource "aws_security_group" "vpce" {
   name        = "rails-aws-sre-lab-vpce-sg"
