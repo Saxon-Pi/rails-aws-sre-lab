@@ -263,5 +263,6 @@ Prevent
 ## Documents
 
 - [01. Ruby on Rails 基礎](docs/01_rails_basics.md)
+- [02. Rails AWS 基本構成](docs/02_rails_aws_architecture.md)
 
 ---
