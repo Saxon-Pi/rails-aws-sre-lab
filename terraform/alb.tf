@@ -18,11 +18,15 @@ resource "aws_lb" "main" {
 }
 
 resource "aws_lb_target_group" "rails" {
-  name        = "rails-aws-sre-lab-tg"
-  port        = 80
+  name_prefix = "rails-"
+  port        = 8080
   protocol    = "HTTP"
   vpc_id      = aws_vpc.main.id
   target_type = "ip"
+
+  lifecycle {
+    create_before_destroy = true
+  }
 
   health_check {
     enabled             = true

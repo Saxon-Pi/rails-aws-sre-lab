@@ -30,7 +30,7 @@ resource "aws_iam_role_policy_attachment" "ecs_task_execution" {
   policy_arn = "arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy"
 }
 
-// Secrets Manager から DB_PASSWORD を取得する Policy
+// Secrets Manager から DB_PASSWORD / Secret を取得する Policy
 resource "aws_iam_role_policy" "ecs_task_execution_secrets" {
   name = "rails-aws-sre-lab-ecs-secrets-policy"
   role = aws_iam_role.ecs_task_execution.id
@@ -44,7 +44,10 @@ resource "aws_iam_role_policy" "ecs_task_execution_secrets" {
         Action = [
           "secretsmanager:GetSecretValue"
         ]
-        Resource = aws_db_instance.postgres.master_user_secret[0].secret_arn
+        Resource = [
+          aws_db_instance.postgres.master_user_secret[0].secret_arn,
+          data.aws_secretsmanager_secret.rails_master_key.arn
+        ]
       }
     ]
   })
