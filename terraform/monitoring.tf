@@ -41,7 +41,6 @@ resource "aws_cloudwatch_dashboard" "main" {
           ]
         }
       },
-
       {
         type   = "metric"
         x      = 12
@@ -67,7 +66,6 @@ resource "aws_cloudwatch_dashboard" "main" {
           ]
         }
       },
-
       {
         type   = "metric"
         x      = 0
@@ -91,7 +89,6 @@ resource "aws_cloudwatch_dashboard" "main" {
           ]
         }
       },
-
       {
         type   = "metric"
         x      = 12
@@ -121,6 +118,148 @@ resource "aws_cloudwatch_dashboard" "main" {
               ".",
               ".",
               "."
+            ]
+          ]
+        }
+      },
+      {
+        type   = "metric"
+        x      = 0
+        y      = 12
+        width  = 12
+        height = 6
+
+        properties = {
+          title  = "ECS CPU Utilization"
+          region = "ap-northeast-1"
+          stat   = "Average"
+          period = 300
+
+          metrics = [
+            [
+              "AWS/ECS",
+              "CPUUtilization",
+              "ClusterName",
+              aws_ecs_cluster.main.name,
+              "ServiceName",
+              aws_ecs_service.rails.name
+            ]
+          ]
+        }
+      },
+      {
+        type   = "metric"
+        x      = 12
+        y      = 12
+        width  = 12
+        height = 6
+
+        properties = {
+          title  = "ECS Memory Utilization"
+          region = "ap-northeast-1"
+          stat   = "Average"
+          period = 300
+
+          metrics = [
+            [
+              "AWS/ECS",
+              "MemoryUtilization",
+              "ClusterName",
+              aws_ecs_cluster.main.name,
+              "ServiceName",
+              aws_ecs_service.rails.name
+            ]
+          ]
+        }
+      },
+      {
+        type   = "metric"
+        x      = 0
+        y      = 18
+        width  = 12
+        height = 6
+
+        properties = {
+          title  = "RDS CPU Utilization"
+          region = "ap-northeast-1"
+          stat   = "Average"
+          period = 300
+
+          metrics = [
+            [
+              "AWS/RDS",
+              "CPUUtilization",
+              "DBInstanceIdentifier",
+              aws_db_instance.postgres.identifier
+            ]
+          ]
+        }
+      },
+      {
+        type   = "metric"
+        x      = 12
+        y      = 18
+        width  = 12
+        height = 6
+
+        properties = {
+          title  = "RDS Database Connections"
+          region = "ap-northeast-1"
+          stat   = "Average"
+          period = 300
+
+          metrics = [
+            [
+              "AWS/RDS",
+              "DatabaseConnections",
+              "DBInstanceIdentifier",
+              aws_db_instance.postgres.identifier
+            ]
+          ]
+        }
+      },
+      {
+        type   = "metric"
+        x      = 0
+        y      = 24
+        width  = 12
+        height = 6
+
+        properties = {
+          title  = "RDS Freeable Memory"
+          region = "ap-northeast-1"
+          stat   = "Average"
+          period = 300
+
+          metrics = [
+            [
+              "AWS/RDS",
+              "FreeableMemory",
+              "DBInstanceIdentifier",
+              aws_db_instance.postgres.identifier
+            ]
+          ]
+        }
+      },
+      {
+        type   = "metric"
+        x      = 12
+        y      = 24
+        width  = 12
+        height = 6
+
+        properties = {
+          title  = "RDS Free Storage Space"
+          region = "ap-northeast-1"
+          stat   = "Average"
+          period = 300
+
+          metrics = [
+            [
+              "AWS/RDS",
+              "FreeStorageSpace",
+              "DBInstanceIdentifier",
+              aws_db_instance.postgres.identifier
             ]
           ]
         }
