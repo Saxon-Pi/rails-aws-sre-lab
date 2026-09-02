@@ -267,3 +267,54 @@ resource "aws_cloudwatch_dashboard" "main" {
     ]
   })
 }
+
+# SNS 通知
+resource "aws_sns_topic" "alerts" {
+  name = "rails-aws-sre-lab-alerts"
+
+  tags = {
+    Name = "rails-aws-sre-lab-alerts"
+  }
+}
+
+# アラームテストは CLI から実行可能
+# aws cloudwatch set-alarm-state \
+#   --alarm-name rails-aws-sre-lab-ecs-cpu-high \
+#   --state-value ALARM \
+#   --state-reason "Manual alarm test"
+
+resource "aws_cloudwatch_metric_alarm" "ecs_cpu_high" {
+  alarm_name        = "rails-aws-sre-lab-ecs-cpu-high"
+  alarm_description = "ECS service CPU utilization is high"
+
+  namespace   = "AWS/ECS"
+  metric_name = "CPUUtilization"
+
+  # 5分平均で80%超が2期間連続したらアラームを発報
+  statistic           = "Average"
+  period              = 300
+  evaluation_periods  = 2
+  threshold           = 80
+  comparison_operator = "GreaterThanThreshold"
+
+  dimensions = {
+    ClusterName = aws_ecs_cluster.main.name
+    ServiceName = aws_ecs_service.rails.name
+  }
+
+  alarm_actions = [
+    aws_sns_topic.alerts.arn
+  ]
+
+  # 回復したらOK通知をする
+  ok_actions = [
+    aws_sns_topic.alerts.arn
+  ]
+
+  # メトリクスが一時的に取得できなかった場合に異常扱いしない
+  treat_missing_data = "notBreaching"
+
+  tags = {
+    Name = "rails-aws-sre-lab-ecs-cpu-high"
+  }
+}
