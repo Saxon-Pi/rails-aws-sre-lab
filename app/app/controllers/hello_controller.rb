@@ -4,4 +4,8 @@ class HelloController < ApplicationController # ApplicationController を継承�
     @name = "Saxon"
     @technologies = ["Ruby", "Rails", "AWS", "Terraform"]
   end
+
+  def error
+    raise "Intentional test error"
+  end
 end
