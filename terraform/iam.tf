@@ -52,3 +52,57 @@ resource "aws_iam_role_policy" "ecs_task_execution_secrets" {
     ]
   })
 }
+
+// Amazon Q Developer in chat applications の Slack チャネルロール
+resource "aws_iam_role" "chatbot" {
+  name = "AWSChatbot-role"
+  path = "/service-role/"
+
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+
+    Statement = [{
+      Effect = "Allow"
+
+      Principal = {
+        Service = "chatbot.amazonaws.com"
+      }
+
+      Action = "sts:AssumeRole"
+    }]
+  })
+}
+
+resource "aws_iam_policy" "chatbot_notifications_only" {
+  name = "rails-aws-sre-lab-chatbot-notifications-only"
+
+  description = "NotificationsOnly policy for Amazon Q Developer in chat applications"
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+
+    Statement = [
+      {
+        Effect = "Allow"
+
+        Action = [
+          "cloudwatch:Describe*",
+          "cloudwatch:Get*",
+          "cloudwatch:List*"
+        ]
+
+        Resource = "*"
+      }
+    ]
+  })
+}
+
+resource "aws_iam_role_policy_attachment" "chatbot_notifications_only" {
+  role       = aws_iam_role.chatbot.name
+  policy_arn = aws_iam_policy.chatbot_notifications_only.arn
+}
+
+resource "aws_iam_role_policy_attachment" "chatbot_amazon_q" {
+  role       = aws_iam_role.chatbot.name
+  policy_arn = "arn:aws:iam::aws:policy/AmazonQDeveloperAccess"
+}

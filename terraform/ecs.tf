@@ -38,7 +38,7 @@ resource "aws_ecs_task_definition" "rails" {
   container_definitions = jsonencode([
     {
       name  = "rails-app"
-      image = "${aws_ecr_repository.rails_app.repository_url}:7420020"
+      image = "${aws_ecr_repository.rails_app.repository_url}:cafca5d"
 
       essential = true
 
