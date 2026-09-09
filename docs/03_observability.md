@@ -1,11 +1,14 @@
 <!-- omit in toc -->
 # ECS / Rails Observability
 
+<!-- omit in toc -->
+## 目次
+
+- [1. 概要](#1-概要)
+- [2. CloudWatch Dashboard](#2-cloudwatch-dashboard)
+- [3. CloudWatch Logs](#3-cloudwatch-logs)
+- [4. Slack 通知](#4-slack-通知)
 - [5. Alarm](#5-alarm)
-  - [5.1 ECS CPU High](#51-ecs-cpu-high)
-  - [5.2 ALB 5XX](#52-alb-5xx)
-  - [5.3 Target Health](#53-target-health)
-  - [5.4 Target 5XX](#54-target-5xx)
 - [6. ELB 5XX と Target 5XX の切り分け](#6-elb-5xx-と-target-5xx-の切り分け)
 - [7. 監視設計まとめ](#7-監視設計まとめ)
 - [8. 今回の検証で確認できたこと](#8-今回の検証で確認できたこと)
@@ -171,9 +174,9 @@ Terraform で管理可能なリソースについては Terraform に取り込�
 
 ---
 
-# 5. Alarm
+## 5. Alarm
 
-## 5.1 ECS CPU High
+### 5.1 ECS CPU High
 
 ECS Service の CPU 使用率を監視する
 
@@ -286,7 +289,7 @@ Slack
 
 ---
 
-## 5.2 ALB 5XX
+### 5.2 ALB 5XX
 
 ALB 自身が生成した 5XX を監視する
 
@@ -384,7 +387,7 @@ Alarm の評価では過去の実データポイントが一定期間評価対�
 
 ---
 
-## 5.3 Target Health
+### 5.3 Target Health
 
 ALB Target Group の正常 Target 数を監視する
 
@@ -473,7 +476,7 @@ ALARM
 
 ---
 
-## 5.4 Target 5XX
+### 5.4 Target 5XX
 
 Target が生成した 5XX を監視する
 
@@ -554,7 +557,7 @@ Slack 通知を確認した
 
 ---
 
-# 6. ELB 5XX と Target 5XX の切り分け
+## 6. ELB 5XX と Target 5XX の切り分け
 
 5XX の発生箇所によって確認するメトリクスを分ける
 
@@ -588,7 +591,7 @@ Slack 通知を確認した
 
 ---
 
-# 7. 監視設計まとめ
+## 7. 監視設計まとめ
 
 今回構築した監視は以下の役割を持つ
 
@@ -628,7 +631,7 @@ CloudWatch Logs
 
 ---
 
-# 8. 今回の検証で確認できたこと
+## 8. 今回の検証で確認できたこと
 
 - CloudWatch Dashboard に ALB / ECS / RDS の主要メトリクスを集約できる
 - ECS の CPU / Memory 使用率を確認できる
