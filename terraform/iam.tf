@@ -106,3 +106,127 @@ resource "aws_iam_role_policy_attachment" "chatbot_amazon_q" {
   role       = aws_iam_role.chatbot.name
   policy_arn = "arn:aws:iam::aws:policy/AmazonQDeveloperAccess"
 }
+
+// GitHub Actions OIDC
+resource "aws_iam_openid_connect_provider" "github_actions" {
+  url = "https://token.actions.githubusercontent.com"
+
+  client_id_list = [
+    "sts.amazonaws.com"
+  ]
+}
+
+resource "aws_iam_role" "github_actions_deploy" {
+  name = "rails-aws-sre-lab-github-actions-deploy-role"
+
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+
+    Statement = [
+      {
+        Effect = "Allow"
+
+        Principal = {
+          Federated = aws_iam_openid_connect_provider.github_actions.arn
+        }
+
+        Action = "sts:AssumeRoleWithWebIdentity"
+
+        Condition = {
+          StringEquals = {
+            "token.actions.githubusercontent.com:aud" = "sts.amazonaws.com"
+          }
+
+          StringLike = {
+            # このGitHub Repository から発行された OIDC Token のみ、この IAM Role を Assume できる
+            "token.actions.githubusercontent.com:sub" = "repo:Saxon-Pi/rails-aws-sre-lab:*"
+          }
+        }
+      }
+    ]
+  })
+
+  tags = {
+    Name = "rails-aws-sre-lab-github-actions-deploy-role"
+  }
+}
+
+# GitHub Actions Deploy Policy
+resource "aws_iam_policy" "github_actions_deploy" {
+  name        = "rails-aws-sre-lab-github-actions-deploy-policy"
+  description = "Permissions for GitHub Actions to deploy Rails application to ECS"
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+
+    Statement = [
+      # ECR login
+      {
+        Effect = "Allow"
+
+        Action = [
+          "ecr:GetAuthorizationToken"
+        ]
+
+        Resource = "*"
+      },
+
+      # ECR push
+      {
+        Effect = "Allow"
+
+        Action = [
+          "ecr:BatchCheckLayerAvailability",
+          "ecr:GetDownloadUrlForLayer",
+          "ecr:BatchGetImage",
+          "ecr:InitiateLayerUpload",
+          "ecr:UploadLayerPart",
+          "ecr:CompleteLayerUpload",
+          "ecr:PutImage"
+        ]
+
+        Resource = aws_ecr_repository.rails_app.arn
+      },
+
+      # ECS deployment
+      {
+        Effect = "Allow"
+
+        Action = [
+          "ecs:RegisterTaskDefinition",
+          "ecs:DescribeTaskDefinition",
+          "ecs:DescribeServices",
+          "ecs:UpdateService"
+        ]
+
+        Resource = "*"
+      },
+
+      # Pass ECS Task Execution Role
+      {
+        Effect = "Allow"
+
+        Action = [
+          "iam:PassRole"
+        ]
+
+        Resource = aws_iam_role.ecs_task_execution.arn
+
+        Condition = {
+          StringEquals = {
+            "iam:PassedToService" = "ecs-tasks.amazonaws.com"
+          }
+        }
+      }
+    ]
+  })
+
+  tags = {
+    Name = "rails-aws-sre-lab-github-actions-deploy-policy"
+  }
+}
+
+resource "aws_iam_role_policy_attachment" "github_actions_deploy" {
+  role       = aws_iam_role.github_actions_deploy.name
+  policy_arn = aws_iam_policy.github_actions_deploy.arn
+}
