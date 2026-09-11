@@ -139,7 +139,7 @@ resource "aws_iam_role" "github_actions_deploy" {
 
           StringLike = {
             # このGitHub Repository から発行された OIDC Token のみ、この IAM Role を Assume できる
-            "token.actions.githubusercontent.com:sub" = "repo:Saxon-Pi/rails-aws-sre-lab:*"
+            "token.actions.githubusercontent.com:sub" = "repo:Saxon-Pi@107937925/rails-aws-sre-lab@1342346266:*"
           }
         }
       }
