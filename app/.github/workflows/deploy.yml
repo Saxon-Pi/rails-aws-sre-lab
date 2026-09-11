@@ -6,6 +6,7 @@ on:
   push:
     branches:
       - develop
+      - feature/5-application-cicd # 一時的に feature ブランチも対象にする
 
 permissions:
   id-token: write
