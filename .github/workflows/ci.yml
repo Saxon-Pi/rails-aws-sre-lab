@@ -2,12 +2,20 @@ name: CI
 
 on:
   pull_request:
+
   push:
-    branches: [ main ]
+    branches:
+      - main
+      - develop
 
 jobs:
   scan_ruby:
+    name: Ruby Security Scan
     runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: app
 
     steps:
       - name: Checkout code
@@ -17,15 +25,22 @@ jobs:
         uses: ruby/setup-ruby@v1
         with:
           bundler-cache: true
+          working-directory: app
 
-      - name: Scan for common Rails security vulnerabilities using static analysis
+      - name: Scan Rails vulnerabilities with Brakeman
         run: bin/brakeman --no-pager
-      
-      - name: Scan for known security vulnerabilities in gems used
+
+      - name: Scan gem vulnerabilities with Bundler Audit
         run: bin/bundler-audit
-      
+
+
   scan_js:
+    name: JavaScript Security Scan
     runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: app
 
     steps:
       - name: Checkout code
@@ -35,14 +50,23 @@ jobs:
         uses: ruby/setup-ruby@v1
         with:
           bundler-cache: true
+          working-directory: app
 
-      - name: Scan for security vulnerabilities in JavaScript dependencies
+      - name: Scan JavaScript dependencies
         run: bin/importmap audit
 
+
   lint:
+    name: RuboCop
     runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: app
+
     env:
-      RUBOCOP_CACHE_ROOT: tmp/rubocop
+      RUBOCOP_CACHE_ROOT: app/tmp/rubocop
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v6
@@ -51,13 +75,14 @@ jobs:
         uses: ruby/setup-ruby@v1
         with:
           bundler-cache: true
+          working-directory: app
 
       - name: Prepare RuboCop cache
         uses: actions/cache@v4
         env:
-          DEPENDENCIES_HASH: ${{ hashFiles('.ruby-version', '**/.rubocop.yml', '**/.rubocop_todo.yml', 'Gemfile.lock') }}
+          DEPENDENCIES_HASH: ${{ hashFiles('app/.ruby-version', 'app/**/.rubocop.yml', 'app/**/.rubocop_todo.yml', 'app/Gemfile.lock') }}
         with:
-          path: ${{ env.RUBOCOP_CACHE_ROOT }}
+          path: app/tmp/rubocop
           key: rubocop-${{ runner.os }}-${{ env.DEPENDENCIES_HASH }}-${{ github.ref_name == github.event.repository.default_branch && github.run_id || 'default' }}
           restore-keys: |
             rubocop-${{ runner.os }}-${{ env.DEPENDENCIES_HASH }}-
@@ -65,8 +90,14 @@ jobs:
       - name: Lint code for consistent style
         run: bin/rubocop -f github
 
+
   test:
+    name: Rails Test
     runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: app
 
     services:
       postgres:
@@ -76,36 +107,39 @@ jobs:
           POSTGRES_PASSWORD: postgres
         ports:
           - 5432:5432
-        options: --health-cmd="pg_isready" --health-interval=10s --health-timeout=5s --health-retries=3
-
-      # redis:
-      #   image: valkey/valkey:8
-      #   ports:
-      #     - 6379:6379
-      #   options: --health-cmd "redis-cli ping" --health-interval 10s --health-timeout 5s --health-retries 5
+        options: >-
+          --health-cmd="pg_isready"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=3
 
     steps:
-      - name: Install packages
-        run: sudo apt-get update && sudo apt-get install --no-install-recommends -y libpq-dev libvips
-
       - name: Checkout code
         uses: actions/checkout@v6
+
+      - name: Install packages
+        run: sudo apt-get update && sudo apt-get install --no-install-recommends -y libpq-dev libvips
 
       - name: Set up Ruby
         uses: ruby/setup-ruby@v1
         with:
           bundler-cache: true
+          working-directory: app
 
       - name: Run tests
         env:
           RAILS_ENV: test
           DATABASE_URL: postgres://postgres:postgres@localhost:5432
-          # RAILS_MASTER_KEY: ${{ secrets.RAILS_MASTER_KEY }}
-          # REDIS_URL: redis://localhost:6379/0
         run: bin/rails db:test:prepare test
 
+
   system-test:
+    name: Rails System Test
     runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: app
 
     services:
       postgres:
@@ -115,32 +149,29 @@ jobs:
           POSTGRES_PASSWORD: postgres
         ports:
           - 5432:5432
-        options: --health-cmd="pg_isready" --health-interval=10s --health-timeout=5s --health-retries=3
-
-      # redis:
-      #   image: valkey/valkey:8
-      #   ports:
-      #     - 6379:6379
-      #   options: --health-cmd "redis-cli ping" --health-interval 10s --health-timeout 5s --health-retries 5
+        options: >-
+          --health-cmd="pg_isready"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=3
 
     steps:
-      - name: Install packages
-        run: sudo apt-get update && sudo apt-get install --no-install-recommends -y libpq-dev libvips
-
       - name: Checkout code
         uses: actions/checkout@v6
+
+      - name: Install packages
+        run: sudo apt-get update && sudo apt-get install --no-install-recommends -y libpq-dev libvips
 
       - name: Set up Ruby
         uses: ruby/setup-ruby@v1
         with:
           bundler-cache: true
+          working-directory: app
 
-      - name: Run System Tests
+      - name: Run system tests
         env:
           RAILS_ENV: test
           DATABASE_URL: postgres://postgres:postgres@localhost:5432
-          # RAILS_MASTER_KEY: ${{ secrets.RAILS_MASTER_KEY }}
-          # REDIS_URL: redis://localhost:6379/0
         run: bin/rails db:test:prepare test:system
 
       - name: Keep screenshots from failed system tests
@@ -148,5 +179,5 @@ jobs:
         if: failure()
         with:
           name: screenshots
-          path: ${{ github.workspace }}/tmp/screenshots
+          path: ${{ github.workspace }}/app/tmp/screenshots
           if-no-files-found: ignore
