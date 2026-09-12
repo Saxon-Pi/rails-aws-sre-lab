@@ -83,3 +83,26 @@ jobs:
       - name: Push Docker image to ECR
         run: |
           docker push "${{ steps.image.outputs.image_uri }}"
+
+      - name: Download current task definition
+        run: |
+          aws ecs describe-task-definition \
+            --task-definition rails-aws-sre-lab \
+            --query taskDefinition \
+            > task-definition.json
+
+      - name: Render new task definition
+        id: task-def
+        uses: aws-actions/amazon-ecs-render-task-definition@v1
+        with:
+          task-definition: task-definition.json
+          container-name: rails-app
+          image: ${{ steps.image.outputs.image_uri }}
+      
+      - name: Deploy to Amazon ECS
+        uses: aws-actions/amazon-ecs-deploy-task-definition@v2
+        with:
+          task-definition: ${{ steps.task-def.outputs.task-definition }}
+          service: rails-aws-sre-lab-service
+          cluster: rails-aws-sre-lab-cluster
+          wait-for-service-stability: true
