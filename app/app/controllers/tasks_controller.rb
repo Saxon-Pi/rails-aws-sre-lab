@@ -18,7 +18,7 @@ class TasksController < ApplicationController
     else
       # 失敗したら入力画面をもう一度表示する
       render :new, status: :unprocessable_entity
-    end 
+    end
   end
 
   def show
@@ -53,13 +53,13 @@ class TasksController < ApplicationController
   private
 
   # params イメージ
-  #{
-  #  task: {
-  #    title: "コード修正",
-  #    description: "Ruby on Rails",
-  #    status: "進行中"
-  #  }
-  #}
+  # {
+  #   task: {
+  #     title: "コード修正",
+  #     description: "Ruby on Rails",
+  #     status: "進行中"
+  #   }
+  # }
   # params の中から task を取得して、その中の title / description / status だけを受け付ける
   def task_params
     params.require(:task).permit(:title, :description, :status)
