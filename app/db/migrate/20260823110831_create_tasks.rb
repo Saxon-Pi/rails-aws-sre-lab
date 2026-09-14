@@ -4,7 +4,7 @@ create_tasks.rb: DB の構造を定義する
 =end
 
 class CreateTasks < ActiveRecord::Migration[8.1]
-# 「tasksテーブルをどう作るか」を定義する Migrationファイル
+  # 「tasksテーブルをどう作るか」を定義する Migrationファイル
   def change
     create_table :tasks do |t|
       t.string :title

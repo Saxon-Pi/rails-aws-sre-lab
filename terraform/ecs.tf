@@ -123,6 +123,13 @@ resource "aws_ecs_service" "rails" {
     container_name   = "rails-app"
     container_port   = 8080
   }
+
+  # タスク定義のリビジョンは GithubAcions 側で管理するため ignore
+  lifecycle {
+    ignore_changes = [
+      task_definition
+    ]
+  }
 }
 
 resource "aws_appautoscaling_target" "ecs" {

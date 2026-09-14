@@ -2,7 +2,7 @@ class HelloController < ApplicationController # ApplicationController を継承�
   def index
     @message = "Hello Rails!"
     @name = "Saxon"
-    @technologies = ["Ruby", "Rails", "AWS", "Terraform"]
+    @technologies = [ "Ruby", "Rails", "AWS", "Terraform" ]
   end
 
   def error
