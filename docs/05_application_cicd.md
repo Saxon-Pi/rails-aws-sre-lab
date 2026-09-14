@@ -492,19 +492,23 @@ Application Image を設定した Revision を作成して ECS Service にデプ
 
 `develop` への Merge 後に Deploy Workflow が自動起動する
 
-![マージ後のDeploy Workflow自動起動](./images/05_application_cicd/)
+![マージ後のDeploy Workflow自動起動](./images/05_application_cicd/cd-result.png)
 
 ECR に新しい Git SHA Tag の Image が作成される
 
-![ECR Image](./images/05_application_cicd/)
+![ECR Image](./images/05_application_cicd/ecr.png)
 
 ECS Task Definition / Service が新 Revision に更新される
 
-![タスク定義Revision更新](./images/05_application_cicd/)
+![タスク定義Revision更新](./images/05_application_cicd/task-definition.png)
+
+ECS Task も更新される
+
+![ECSタスク更新](./images/05_application_cicd/ecs-task.png)
 
 ALB 経由で変更後の Rails 画面を確認
 
-![アプリケーション画面](./images/05_application_cicd/)
+![アプリケーション画面](./images/05_application_cicd/application.png)
 
 ---
 
