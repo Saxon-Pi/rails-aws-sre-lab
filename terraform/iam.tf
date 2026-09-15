@@ -116,6 +116,7 @@ resource "aws_iam_openid_connect_provider" "github_actions" {
   ]
 }
 
+// Rails アプリケーションの CI/CD 用 Role
 resource "aws_iam_role" "github_actions_deploy" {
   name = "rails-aws-sre-lab-github-actions-deploy-role"
 
@@ -229,4 +230,279 @@ resource "aws_iam_policy" "github_actions_deploy" {
 resource "aws_iam_role_policy_attachment" "github_actions_deploy" {
   role       = aws_iam_role.github_actions_deploy.name
   policy_arn = aws_iam_policy.github_actions_deploy.arn
+}
+
+// Terraform インフラ用の CI/CD 用 Role
+resource "aws_iam_role" "github_actions_terraform" {
+  name = "rails-aws-sre-lab-github-actions-terraform-role"
+
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+
+    Statement = [
+      {
+        Effect = "Allow"
+
+        Principal = {
+          Federated = aws_iam_openid_connect_provider.github_actions.arn
+        }
+
+        Action = "sts:AssumeRoleWithWebIdentity"
+
+        Condition = {
+          StringEquals = {
+            "token.actions.githubusercontent.com:aud" = "sts.amazonaws.com"
+          }
+
+          StringLike = {
+            # このGitHub Repository から発行された OIDC Token のみ、この IAM Role を Assume できる
+            "token.actions.githubusercontent.com:sub" = "repo:Saxon-Pi@107937925/rails-aws-sre-lab@1342346266:*"
+          }
+        }
+      }
+    ]
+  })
+
+  tags = {
+    Name = "rails-aws-sre-lab-github-actions-terraform-role"
+  }
+}
+
+resource "aws_iam_policy" "github_actions_terraform" {
+  name        = "rails-aws-sre-lab-github-actions-terraform-policy"
+  description = "Permissions for GitHub Actions to manage Rails AWS SRE Lab infrastructure with Terraform"
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+
+    Statement = [
+      # =====================================================
+      # Terraform Remote State
+      # =====================================================
+      {
+        Sid    = "TerraformStateBucket"
+        Effect = "Allow"
+
+        Action = [
+          "s3:ListBucket",
+          "s3:GetBucketVersioning"
+        ]
+
+        Resource = "arn:aws:s3:::rails-aws-sre-lab-terraform-state"
+      },
+
+      {
+        Sid    = "TerraformStateObject"
+        Effect = "Allow"
+
+        Action = [
+          "s3:GetObject",
+          "s3:PutObject",
+          "s3:DeleteObject"
+        ]
+
+        Resource = [
+          "arn:aws:s3:::rails-aws-sre-lab-terraform-state/terraform.tfstate",
+          "arn:aws:s3:::rails-aws-sre-lab-terraform-state/terraform.tfstate.tflock"
+        ]
+      },
+
+      # =====================================================
+      # VPC / Network
+      # =====================================================
+      {
+        Sid    = "EC2Infrastructure"
+        Effect = "Allow"
+
+        Action = [
+          "ec2:*"
+        ]
+
+        Resource = "*"
+      },
+
+      # =====================================================
+      # ALB
+      # =====================================================
+      {
+        Sid    = "ElasticLoadBalancing"
+        Effect = "Allow"
+
+        Action = [
+          "elasticloadbalancing:*"
+        ]
+
+        Resource = "*"
+      },
+
+      # =====================================================
+      # ECS
+      # =====================================================
+      {
+        Sid    = "ECS"
+        Effect = "Allow"
+
+        Action = [
+          "ecs:*"
+        ]
+
+        Resource = "*"
+      },
+
+      # =====================================================
+      # ECR
+      # =====================================================
+      {
+        Sid    = "ECR"
+        Effect = "Allow"
+
+        Action = [
+          "ecr:*"
+        ]
+
+        Resource = "*"
+      },
+
+      # =====================================================
+      # RDS
+      # =====================================================
+      {
+        Sid    = "RDS"
+        Effect = "Allow"
+
+        Action = [
+          "rds:*"
+        ]
+
+        Resource = "*"
+      },
+
+      # =====================================================
+      # CloudWatch / Logs
+      # =====================================================
+      {
+        Sid    = "CloudWatch"
+        Effect = "Allow"
+
+        Action = [
+          "cloudwatch:*",
+          "logs:*"
+        ]
+
+        Resource = "*"
+      },
+
+      # =====================================================
+      # SNS
+      # =====================================================
+      {
+        Sid    = "SNS"
+        Effect = "Allow"
+
+        Action = [
+          "sns:*"
+        ]
+
+        Resource = "*"
+      },
+
+      # =====================================================
+      # Secrets Manager
+      # =====================================================
+      {
+        Sid    = "SecretsManager"
+        Effect = "Allow"
+
+        Action = [
+          "secretsmanager:DescribeSecret",
+          "secretsmanager:GetResourcePolicy",
+          "secretsmanager:ListSecretVersionIds"
+        ]
+
+        Resource = "*"
+      },
+
+      # =====================================================
+      # Application Auto Scaling
+      # =====================================================
+      {
+        Sid    = "ApplicationAutoScaling"
+        Effect = "Allow"
+
+        Action = [
+          "application-autoscaling:*"
+        ]
+
+        Resource = "*"
+      },
+
+      # =====================================================
+      # IAM
+      # =====================================================
+      {
+        Sid    = "IAM"
+        Effect = "Allow"
+
+        Action = [
+          "iam:GetRole",
+          "iam:GetPolicy",
+          "iam:GetPolicyVersion",
+          "iam:GetOpenIDConnectProvider",
+
+          "iam:ListRolePolicies",
+          "iam:ListAttachedRolePolicies",
+          "iam:ListPolicyVersions",
+
+          "iam:CreateRole",
+          "iam:UpdateAssumeRolePolicy",
+          "iam:DeleteRole",
+
+          "iam:CreatePolicy",
+          "iam:CreatePolicyVersion",
+          "iam:DeletePolicy",
+          "iam:DeletePolicyVersion",
+
+          "iam:AttachRolePolicy",
+          "iam:DetachRolePolicy",
+
+          "iam:PutRolePolicy",
+          "iam:GetRolePolicy",
+          "iam:DeleteRolePolicy",
+
+          "iam:TagRole",
+          "iam:UntagRole",
+          "iam:TagPolicy",
+          "iam:UntagPolicy",
+
+          "iam:PassRole"
+        ]
+
+        Resource = "*"
+      },
+
+      # =====================================================
+      # Amazon Q Developer in chat applications
+      # AWS Chatbot API namespace
+      # =====================================================
+      {
+        Sid    = "Chatbot"
+        Effect = "Allow"
+
+        Action = [
+          "chatbot:*"
+        ]
+
+        Resource = "*"
+      }
+    ]
+  })
+
+  tags = {
+    Name = "rails-aws-sre-lab-github-actions-terraform-policy"
+  }
+}
+
+resource "aws_iam_role_policy_attachment" "github_actions_terraform" {
+  role       = aws_iam_role.github_actions_terraform.name
+  policy_arn = aws_iam_policy.github_actions_terraform.arn
 }
