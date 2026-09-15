@@ -21,6 +21,10 @@ jobs:
     name: Terraform Plan
     runs-on: ubuntu-latest
 
+    env:
+      TF_VAR_slack_workspace_id: ${{ vars.TF_VAR_slack_workspace_id }}
+      TF_VAR_slack_channel_id: ${{ vars.TF_VAR_slack_channel_id }}
+
     defaults:
       run:
         working-directory: terraform
