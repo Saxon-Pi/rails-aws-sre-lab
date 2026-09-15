@@ -447,25 +447,33 @@ resource "aws_iam_policy" "github_actions_terraform" {
           "iam:GetRole",
           "iam:GetPolicy",
           "iam:GetPolicyVersion",
+          "iam:GetOpenIDConnectProvider",
+
           "iam:ListRolePolicies",
           "iam:ListAttachedRolePolicies",
           "iam:ListPolicyVersions",
+
           "iam:CreateRole",
           "iam:UpdateAssumeRolePolicy",
           "iam:DeleteRole",
+
           "iam:CreatePolicy",
           "iam:CreatePolicyVersion",
           "iam:DeletePolicy",
           "iam:DeletePolicyVersion",
+
           "iam:AttachRolePolicy",
           "iam:DetachRolePolicy",
+
           "iam:PutRolePolicy",
           "iam:GetRolePolicy",
           "iam:DeleteRolePolicy",
+
           "iam:TagRole",
           "iam:UntagRole",
           "iam:TagPolicy",
           "iam:UntagPolicy",
+          
           "iam:PassRole"
         ]
 
