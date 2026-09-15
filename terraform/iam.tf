@@ -473,7 +473,7 @@ resource "aws_iam_policy" "github_actions_terraform" {
           "iam:UntagRole",
           "iam:TagPolicy",
           "iam:UntagPolicy",
-          
+
           "iam:PassRole"
         ]
 
