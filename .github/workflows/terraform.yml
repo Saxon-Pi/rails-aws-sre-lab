@@ -1,0 +1,57 @@
+name: Terraform CI
+
+on:
+  workflow_dispatch:
+
+  pull_request:
+    branches:
+      - develop
+      - main
+    # Terraform 関連ファイルを含む PR でトリガー
+    paths:
+      - "terraform/**"
+      - ".github/workflows/terraform.yml"
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  terraform:
+    name: Terraform Plan
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: terraform
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v5
+        with:
+          role-to-assume: arn:aws:iam::867344446779:role/rails-aws-sre-lab-github-actions-terraform-role
+          aws-region: ap-northeast-1
+
+      - name: Verify AWS identity
+        run: aws sts get-caller-identity
+
+      # terraform fmt -> terraform validate -> terraform plan
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+
+      - name: Terraform Format Check
+        run: terraform fmt -check -recursive
+
+      # この Terraform ディレクトリを実行可能な状態に初期化するコマンド
+      # (backend.tf をもとに S3 Backend に接続することで Remote State を使って plan できるようにする、ことも含む)
+      - name: Terraform Init
+        run: terraform init -input=false
+
+      - name: Terraform Validate
+        run: terraform validate
+
+      - name: Terraform Plan
+        run: terraform plan -input=false -no-color
