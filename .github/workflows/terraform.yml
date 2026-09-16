@@ -1,0 +1,112 @@
+# Terraform では CI (plan) と CD (apply) は同一ファイルで定義する
+
+name: Terraform CI/CD
+
+on:
+  # 手動実行でも CI 実行可能
+  workflow_dispatch:
+
+  # CI は PR 作成・更新タイミング
+  pull_request:
+    branches:
+      - develop
+      - main
+    # Terraform 関連ファイルを含む PR でトリガー
+    paths:
+      - "terraform/**"
+      - ".github/workflows/terraform.yml"
+  
+  # CD は Merge して develop に push するタイミング
+  push:
+    branches:
+      - develop
+    paths:
+      - "terraform/**"
+      - ".github/workflows/terraform.yml"
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  # CI (terraform planまで) を実行
+  plan: # Job ID
+    name: Terraform Plan
+    if: github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+
+    env:
+      TF_VAR_slack_workspace_id: ${{ vars.TF_VAR_slack_workspace_id }}
+      TF_VAR_slack_channel_id: ${{ vars.TF_VAR_slack_channel_id }}
+
+    defaults:
+      run:
+        working-directory: terraform
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v5
+        with:
+          role-to-assume: arn:aws:iam::867344446779:role/rails-aws-sre-lab-github-actions-terraform-role
+          aws-region: ap-northeast-1
+
+      - name: Verify AWS identity
+        run: aws sts get-caller-identity
+
+      # terraform fmt -> terraform validate -> terraform plan
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+
+      - name: Terraform Format Check
+        run: terraform fmt -check -recursive
+
+      # この Terraform ディレクトリを実行可能な状態に初期化するコマンド
+      # (backend.tf をもとに S3 Backend に接続することで Remote State を使って plan できるようにする、ことも含む)
+      - name: Terraform Init
+        run: terraform init -input=false
+
+      - name: Terraform Validate
+        run: terraform validate
+
+      - name: Terraform Plan
+        run: terraform plan -input=false -no-color
+
+  # CD (terraform apply) を実行
+  apply: # Job ID
+    name: Terraform Apply
+    # push イベント かつ push 先が develop ブランチであれば実行
+    if: github.event_name == 'push' && github.ref == 'refs/heads/develop'
+    runs-on: ubuntu-latest
+
+    env:
+      TF_VAR_slack_workspace_id: ${{ vars.TF_VAR_slack_workspace_id }}
+      TF_VAR_slack_channel_id: ${{ vars.TF_VAR_slack_channel_id }}
+
+    defaults:
+      run:
+        working-directory: terraform
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v5
+        with:
+          role-to-assume: arn:aws:iam::867344446779:role/rails-aws-sre-lab-github-actions-terraform-role
+          aws-region: ap-northeast-1
+
+      - name: Verify AWS identity
+        run: aws sts get-caller-identity
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+
+      - name: Terraform Init
+        run: terraform init -input=false
+
+      - name: Terraform Apply
+        run: terraform apply -input=false -auto-approve
