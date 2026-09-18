@@ -506,6 +506,7 @@ resource "aws_iam_policy" "github_actions_terraform" {
           "route53:ListHostedZones",
           "route53:GetHostedZone",
           "route53:ListResourceRecordSets",
+          "route53:ListTagsForResource",
           "route53:ChangeResourceRecordSets",
           "route53:GetChange"
         ]
