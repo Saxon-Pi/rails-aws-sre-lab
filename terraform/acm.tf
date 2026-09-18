@@ -21,7 +21,7 @@ resource "aws_route53_record" "acm_validation" {
       type   = dvo.resource_record_type
     }
   }
-  
+
   # Route 53 に実際の CNAME を作る
   # → 検証用 CNAME を Route 53に登録できると、
   #   「DNS を制御できる ＝ ドメイン管理権限を持っている」と判断され、
