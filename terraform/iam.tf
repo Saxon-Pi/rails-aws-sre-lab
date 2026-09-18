@@ -493,6 +493,44 @@ resource "aws_iam_policy" "github_actions_terraform" {
         ]
 
         Resource = "*"
+      },
+
+      # =====================================================
+      # Route 53
+      # =====================================================
+      {
+        Sid    = "Route53"
+        Effect = "Allow"
+
+        Action = [
+          "route53:ListHostedZones",
+          "route53:GetHostedZone",
+          "route53:ListResourceRecordSets",
+          "route53:ListTagsForResource",
+          "route53:ChangeResourceRecordSets",
+          "route53:GetChange"
+        ]
+
+        Resource = "*"
+      },
+
+      # =====================================================
+      # AWS Certificate Manager
+      # =====================================================
+      {
+        Sid    = "ACM"
+        Effect = "Allow"
+
+        Action = [
+          "acm:RequestCertificate",
+          "acm:DescribeCertificate",
+          "acm:DeleteCertificate",
+          "acm:ListTagsForCertificate",
+          "acm:AddTagsToCertificate",
+          "acm:RemoveTagsFromCertificate"
+        ]
+
+        Resource = "*"
       }
     ]
   })

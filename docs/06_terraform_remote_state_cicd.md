@@ -173,6 +173,8 @@ if: github.event_name == 'push' && github.ref == 'refs/heads/develop'
 feature branch の Pull Request が `develop` にマージされた結果として  
 push イベントが発生し、Terraform Apply が実行される
 
+![CD 実行](./images/06_terraform_remote_state_cicd/apply-triggered.png)
+
 ``` text
 Pull Request
     |
@@ -202,22 +204,11 @@ terraform apply -input=false -auto-approve
 AWS Infrastructure
 ```
 
-**マージ後**
+![CD skip](./images/06_terraform_remote_state_cicd/github-actions-apply-2.png)
 
--   `develop` push をトリガーに Terraform Apply が起動した画面
--   `Terraform Apply` の Successful ログ
--   Apply 後の対象 AWS リソース
--   Apply 後の `terraform plan` が `No changes` となること
+Apply 後の `terraform plan` が `No changes` となることを確認できた
 
-``` text
-PR: Plan Successful
-        ↓
-Merge
-        ↓
-develop: Apply Successful
-        ↓
-terraform plan: No changes
-```
+![CD skip](./images/06_terraform_remote_state_cicd/apply-result.png)
 
 ---
 
