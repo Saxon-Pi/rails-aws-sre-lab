@@ -531,6 +531,28 @@ resource "aws_iam_policy" "github_actions_terraform" {
         ]
 
         Resource = "*"
+      },
+
+      # =====================================================
+      # EventBridge Rule
+      # =====================================================
+      {
+        Sid    = "EventBridge"
+        Effect = "Allow"
+
+        Action = [
+          "events:DescribeRule",
+          "events:ListTargetsByRule",
+          "events:PutRule",
+          "events:PutTargets",
+          "events:RemoveTargets",
+          "events:DeleteRule",
+          "events:ListTagsForResource",
+          "events:TagResource",
+          "events:UntagResource"
+        ]
+
+        Resource = "*"
       }
     ]
   })

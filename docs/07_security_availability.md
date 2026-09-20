@@ -178,10 +178,23 @@ ECS / Rails
 Terraform Apply 後に以下を確認する
 
 - ACM Certificate が発行されている
-- Route 53にA Alias が作成されている
-- ACM 検証用 CNAME が作成されている
+
+![ACM 証明書](./images/07_security_availability/acm-certificate.png)
+
+- Route 53にA Alias と ACM 検証用 CNAME が作成されている
+
+![Route 53 レコード](./images/07_security_availability/route53-records.png)
+
 - ALB に HTTPS :443 Listener が存在する
-- HTTP アクセスが HTTPS に Redirect される
-- https://app.saxon-aws-lab.click/tasks へアクセスできる
+
+![ALB リスナールール](./images/07_security_availability/alb-listener-rule.png)
+
+- HTTP アクセスが HTTPS に Redirect され、https://app.saxon-aws-lab.click/tasks にアクセスできる
+
+![アプリケーション画面](./images/07_security_availability/application.png)
+
+![セキュリティ](./images/07_security_availability/security.png)
+
+![証明書ビューア](./images/07_security_availability/cert-viewer.png)
 
 ---
