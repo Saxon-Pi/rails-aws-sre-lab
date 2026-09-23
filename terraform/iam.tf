@@ -625,3 +625,26 @@ resource "aws_iam_role_policy_attachment" "devops_operator_app" {
 
   policy_arn = "arn:aws:iam::aws:policy/AIDevOpsOperatorAppAccessPolicy"
 }
+
+// Agent Space Role に Resource Explorer 用 Service-linked Role 作成権限を追加
+// (Topology discovery で Resource Explorer を使うため)
+resource "aws_iam_role_policy" "devops_agent_space_resource_explorer" {
+  name = "AllowCreateResourceExplorerServiceLinkedRole"
+  role = aws_iam_role.devops_agent_space.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+
+    Statement = [
+      {
+        Effect = "Allow"
+
+        Action = [
+          "iam:CreateServiceLinkedRole"
+        ]
+
+        Resource = "arn:aws:iam::*:role/aws-service-role/resource-explorer-2.amazonaws.com/AWSServiceRoleForResourceExplorer"
+      }
+    ]
+  })
+}
