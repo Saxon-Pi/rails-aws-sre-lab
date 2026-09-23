@@ -566,3 +566,85 @@ resource "aws_iam_role_policy_attachment" "github_actions_terraform" {
   role       = aws_iam_role.github_actions_terraform.name
   policy_arn = aws_iam_policy.github_actions_terraform.arn
 }
+
+// DevOps Agent - 調査用 Agent Space Role
+
+resource "aws_iam_role" "devops_agent_space" {
+  name = "rails-aws-sre-lab-devops-agent-space-role"
+
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+
+    Statement = [
+      {
+        Effect = "Allow"
+
+        Principal = {
+          Service = "aidevops.amazonaws.com"
+        }
+
+        Action = "sts:AssumeRole"
+      }
+    ]
+  })
+}
+
+resource "aws_iam_role_policy_attachment" "devops_agent_space" {
+  role = aws_iam_role.devops_agent_space.name
+
+  policy_arn = "arn:aws:iam::aws:policy/AIDevOpsAgentAccessPolicy"
+}
+
+// DevOps Agent - Operator App 用 Role
+
+resource "aws_iam_role" "devops_operator_app" {
+  name = "rails-aws-sre-lab-devops-operator-app-role"
+
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+
+    Statement = [
+      {
+        Effect = "Allow"
+
+        Principal = {
+          Service = "aidevops.amazonaws.com"
+        }
+
+        Action = [
+          "sts:AssumeRole",
+          "sts:TagSession"
+        ]
+      }
+    ]
+  })
+}
+
+resource "aws_iam_role_policy_attachment" "devops_operator_app" {
+  role = aws_iam_role.devops_operator_app.name
+
+  policy_arn = "arn:aws:iam::aws:policy/AIDevOpsOperatorAppAccessPolicy"
+}
+
+// Agent Space Role に Resource Explorer 用 Service-linked Role 作成権限を追加
+// (Topology discovery で Resource Explorer を使うため)
+resource "aws_iam_role_policy" "devops_agent_space_resource_explorer" {
+  name = "AllowCreateResourceExplorerServiceLinkedRole"
+  role = aws_iam_role.devops_agent_space.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+
+    Statement = [
+      {
+        Effect = "Allow"
+
+        Action = [
+          "iam:CreateServiceLinkedRole"
+        ]
+
+        Resource = "arn:aws:iam::*:role/aws-service-role/resource-explorer-2.amazonaws.com/AWSServiceRoleForResourceExplorer"
+      }
+    ]
+  })
+}
