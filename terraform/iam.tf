@@ -556,7 +556,7 @@ resource "aws_iam_policy" "github_actions_terraform" {
       },
 
       # =====================================================
-      # DevOps Agent
+      # DevOps Agent & CloudFormation
       # → awscc Provider が AWS Cloud Control API / CloudFormation resource API
       #   を使って awscc_devopsagent_agent_space を作成するため
       # =====================================================
@@ -571,6 +571,34 @@ resource "aws_iam_policy" "github_actions_terraform" {
           "cloudformation:UpdateResource",
           "cloudformation:DeleteResource",
           "cloudformation:ListResources"
+        ]
+
+        Resource = "*"
+      },
+
+      {
+        Sid    = "DevOpsAgent"
+        Effect = "Allow"
+
+        Action = [
+          "aidevops:GetAgentSpace",
+          "aidevops:ListAgentSpaces",
+
+          "aidevops:GetAssociation",
+          "aidevops:ListAssociations",
+
+          "aidevops:CreateAgentSpace",
+          "aidevops:UpdateAgentSpace",
+          "aidevops:DeleteAgentSpace",
+
+          "aidevops:AssociateService",
+          "aidevops:UpdateAssociation",
+          "aidevops:DisassociateService",
+
+          "aidevops:GetOperatorApp",
+          "aidevops:ListTagsForResource",
+          "aidevops:TagResource",
+          "aidevops:UntagResource"
         ]
 
         Resource = "*"
