@@ -605,6 +605,16 @@ resource "aws_iam_role" "devops_agent_space" {
         }
 
         Action = "sts:AssumeRole"
+
+        Condition = {
+          StringEquals = {
+            "aws:SourceAccount" = data.aws_caller_identity.current.account_id
+          }
+
+          ArnLike = {
+            "aws:SourceArn" = "arn:aws:aidevops:${var.aws_region}:${data.aws_caller_identity.current.account_id}:agentspace/*"
+          }
+        }
       }
     ]
   })
@@ -636,6 +646,16 @@ resource "aws_iam_role" "devops_operator_app" {
           "sts:AssumeRole",
           "sts:TagSession"
         ]
+
+        Condition = {
+          StringEquals = {
+            "aws:SourceAccount" = data.aws_caller_identity.current.account_id
+          }
+
+          ArnLike = {
+            "aws:SourceArn" = "arn:aws:aidevops:${var.aws_region}:${data.aws_caller_identity.current.account_id}:agentspace/*"
+          }
+        }
       }
     ]
   })
