@@ -28,7 +28,7 @@ AWS DevOps Agent を利用し、
 本検証では、先に人手によるインシデント対応をした Rails on ECS 環境に対して、  
 同等の障害を再現し DevOps Agent に症状のみを伝えて調査を依頼する
 
-特に以下を確認する
+特に以下の観点で評価する
 
 - 症状から対象システムと影響範囲を特定できるか
 - Metrics / Logs / CloudTrail / AWS リソース状態などを横断して調査できるか
@@ -83,16 +83,23 @@ RDS PostgreSQL
 ### 2.2 DevOps Agent
 
 Agent Space に AWS アカウントを Primary source として関連付け、  
-Operator App から Investigation を実行する
+チャット形式のアプリケーションから調査を実行する
 
-![](./images/10_devops_agent_investigation/)
+![Primary source](./images/10_devops_agent_investigation/primary_source.png)
 
-Agent Space 作成後の Topology Mapping により、  
-Rails AWS SRE Lab は ECS / ALB / RDS / ECR などから構成される論理システムとして認識された
+![DevOps Agent アプリ](./images/10_devops_agent_investigation/operator_app.png)
 
-![](./images/10_devops_agent_investigation/)
+Agent Space を作成すると Topology Mapping が自動生成され、  
+rails-aws-sre-lab 環境は ECS / ALB / RDS / ECR などから構成される論理システムとして認識された
 
-本検証では Elevated Role を設定せず、DevOps Agent の役割を以下に限定する
+![Agent Space マッピング](./images/10_devops_agent_investigation/agent_space_mapping.png)
+
+自動生成された Topology：
+
+![topology](./images/10_devops_agent_investigation/topology.png)
+
+本検証では Elevated Role（Agent によるリソースの操作権限）を設定せず、  
+DevOps Agent の役割を以下に限定する
 
 ```text
 DevOps Agent
@@ -112,14 +119,10 @@ SRE（人間）
 
 ## 3. 検証方針
 
-DevOps Agent に障害原因を直接伝えず、利用者が観測できる「症状」だけを入力する
+今回の検証では DevOps Agent に障害原因を直接伝えず、  
+利用者が観測できる「症状」だけを入力して、原因調査を依頼する
 
-![](./images/10_devops_agent_investigation/)
-
-これにより、既知の答えへ誘導するのではなく、  
-Agent が Topology と Telemetry から自律的に原因へ到達できるかを評価する
-
-![](./images/10_devops_agent_investigation/)
+これにより、Agent が Topology と Telemetry から自律的に原因へ到達できるかを評価する
 
 ---
 
@@ -145,12 +148,19 @@ Agent が Topology と Telemetry から自律的に原因へ到達できるか�
 Rails に検証用エンドポイント `/test-error` を用意し、  
 アクセス時に意図的な `RuntimeError` を発生させる
 
+- routes.rb
+```ruby
+Rails.application.routes.draw do
+  ...
+  get "/tasks", to: "tasks#index"
+  get "/test-error", to: "hello#error"
+end
+```
+
 - hello_controller.rb
 ```ruby
 class HelloController < ApplicationController
-  def index
-    ...
-  end
+  ...
 
   def error
     raise "Intentional test error"
@@ -158,7 +168,7 @@ class HelloController < ApplicationController
 end
 ```
 
-curl コマンドで正常系を確認する
+curl コマンドで、まずは正常系を確認する
 
 ```bash
 curl -I https://app.saxon-aws-lab.click/tasks
@@ -170,7 +180,7 @@ curl -I https://app.saxon-aws-lab.click/tasks
 HTTP/2 200
 ```
 
-同じく curl コマンドで異常系を確認する
+続いて curl コマンドで異常系を確認する
 
 ```bash
 curl -i https://app.saxon-aws-lab.click/test-error
@@ -191,13 +201,18 @@ Agent には事象のみを伝えて、原因調査を依頼する
 
 > Rails AWS SRE LabでHTTP 500エラーが発生しました。原因を調査してください。
 
-![](./images/10_devops_agent_investigation/)
+![DevOps Agent 入力](./images/10_devops_agent_investigation/devops_agent_input.png)
+
+調査方法は「インベスティゲーションを開く」を選択し、  
+バックグラウンドで Agent に自律的な調査をさせる
+
+![エラー調査方式](./images/10_devops_agent_investigation/devops_agent_investigation.png)
 
 ---
 
 ### 4.3 調査の流れ
 
-DevOps Agent は Agent Space Understanding から Rails AWS SRE Lab の構成を読み込み、  
+DevOps Agent は Topology Mapping から rails-aws-sre-lab の構成を読み込み、  
 CloudWatch Alarm / Metrics / Logs / AWS リソース状態などを調査した
 
 調査結果を整理すると以下の流れとなる
@@ -212,13 +227,13 @@ Target 5XX を確認
    |      -> ALB 自身のエラーではない
    |
    ├─ ECS / ALB / RDS health
-   |      -> 正常
+   |      -> リソースはすべて正常
    |
    ├─ Resource saturation
-   |      -> CPU / DB / latency に異常なし
+   |      -> CPU / DB / latency に異常なし（即時応答）
    |
    ├─ Deployment / infrastructure change
-   |      -> 原因として除外
+   |      -> 原因として除外（リポジトリ未接続でコード差分を取得不可）
    |
    v
 CloudWatch Logs
@@ -236,7 +251,9 @@ app/controllers/hello_controller.rb:9
 RuntimeError: Intentional test error
 ```
 
-![](./images/10_devops_agent_investigation/)
+![インシデントタイムライン](./images/10_devops_agent_investigation/incident_timeline.png)
+
+![調査記録](./images/10_devops_agent_investigation/investigation_results.png)
 
 ---
 
@@ -251,13 +268,13 @@ DevOps Agent は以下を根本原因として特定した
    -> Rails が HTTP 500 を返却
 ```
 
-![](./images/10_devops_agent_investigation/)
+![RCA](./images/10_devops_agent_investigation/devops_agent_rca.png)
 
 さらに、Target 5XX が発生している一方で ALB 5XX は 0 件であること、  
 ECS / ALB / RDS が正常であること、当該リクエストで DB Query が発生していないことなどから、  
 インフラや DB を原因候補から除外した
 
-![](./images/10_devops_agent_investigation/)
+![調査タイムライン](./images/10_devops_agent_investigation/devops_agent_timeline.png)
 
 ---
 
@@ -272,9 +289,9 @@ Agent は調査できなかった範囲も明示した
 | 過去の一部 Target 5XX と現在ログの対応不足 | 過去イベントの詳細原因を断定できない |
 
 今回の 500 については Rails Log から直接原因を確認できたため、  
-これらの Gap は RCA の結論には影響しなかった
+これらの調査ギャップは、根本原因の結論には影響しなかった
 
-![](./images/10_devops_agent_investigation/)
+![調査ギャップ](./images/10_devops_agent_investigation/devops_agent_gap.png)
 
 ---
 
@@ -287,19 +304,29 @@ DevOps Agent は以下のような対策を提示した
 - 恒久対応として `/test-error` を削除または本番環境で無効化する
 - 変更前設定の保存、事前検証、変更後検証、ロールバック 手順を準備する
 
-重要なのは、Agent の提案値をそのまま採用するのではなく、  
+![緩和策](./images/10_devops_agent_investigation/mitigation_plan.png)
+
+重要なのは、Agent の提案内容をそのまま採用するのではなく、  
 Alarm の閾値などは SLO、通常トラフィック、許容エラー率を踏まえて人間が判断することである
 
-![](./images/10_devops_agent_investigation/)
+また、緩和計画の具体的な手順も提示される
+
+![緩和計画 1](./images/10_devops_agent_investigation/mitigation_plan_step1.png)
+
+![緩和計画 2](./images/10_devops_agent_investigation/mitigation_plan_step2.png)
+
+![緩和計画 3](./images/10_devops_agent_investigation/mitigation_plan_step3.png)
+
+![緩和計画 4](./images/10_devops_agent_investigation/mitigation_plan_step4.png)
 
 ---
 
 ### 4.7 調査時間
 
 本シナリオの検証では、  
-Investigation Timeline 上では、Root Cause 到達まで約 **15分35秒** 掛かった
+調査タイムライン上では、根本原因の特定まで約 **15分35秒** 掛かった
 
-![](./images/10_devops_agent_investigation/)
+![調査タイムライン](./images/10_devops_agent_investigation/devops_agent_timeline.png)
 
 ---
 
@@ -310,7 +337,7 @@ Investigation Timeline 上では、Root Cause 到達まで約 **15分35秒** 掛
 稼働中の唯一の ECS Task を AWS Management Console から手動停止し、  
 一時的なサービス断を発生させる
 
-※ ECS Service は `desiredCount = 1` で稼働している
+※ ECS Service は `desiredCount = 1` で稼働
 
 ```text
 ECS Service
@@ -334,7 +361,9 @@ ECS Service launches replacement task
 Running = 1 / Healthy Target = 1
 ```
 
-![](./images/10_devops_agent_investigation/)
+![ECS タスク（実行中）](./images/10_devops_agent_investigation/scenario2_ecs_task_running.png)
+
+![ECS タスク（停止）](./images/10_devops_agent_investigation/scenario2_ecs_task_stopped.png)
 
 ---
 
@@ -344,7 +373,7 @@ ECS や Task の状態については一切伝えず、ユーザー視点の症�
 
 > https://app.saxon-aws-lab.click/tasks に一時的に接続できなくなったから、原因を調べてみて！
 
-![](./images/10_devops_agent_investigation/)
+![DevOps Agent アプリ](./images/10_devops_agent_investigation/scenario2_devops_agent_input.png)
 
 ---
 
@@ -363,7 +392,9 @@ DevOps Agent は以下を確認した
 - ECS Service が Replacement Task を起動
 - 約 1〜2 分で Self Healing
 
-![](./images/10_devops_agent_investigation/)
+![インシデントタイムライン](./images/10_devops_agent_investigation/scenario2_incident_timeline.png)
+
+![調査記録](./images/10_devops_agent_investigation/scenario2_investigation_results.png)
 
 ---
 
@@ -400,27 +431,30 @@ Healthy Target = 1
 一方で、1 Task の喪失が即座にサービス断へつながった構造的な要因として、  
 `desiredCount = 1` による冗長性不足も指摘している
 
-![](./images/10_devops_agent_investigation/)
+![概要](./images/10_devops_agent_investigation/scenario2_devops_agent_overview.png)
+
+![RCA](./images/10_devops_agent_investigation/scenario2_devops_agent_rca.png)
 
 ---
 
-### 5.5 Self Healing の分析
+### 5.5 ECS の自己回復について
 
-DevOps Agent は、ECS Service によって Replacement Task が自動起動され、  
+DevOps Agent は、ECS Service によって代替 Task が自動起動され、  
 サービスが約 1〜2 分で復旧したことも確認した
 
-これは以下の違いを明確に示している
+今回の構成は ECS の自己回復は機能したが、  
+`desiredCount = 1` による冗長性欠如を指摘している
+
+そのため高可用性を実現するために、  
+`desiredCount = 2` への引き上げと 2AZ分散を推奨している
 
 ```text
-Self Healing
+自己回復（Self Healing）
   = 障害後に正常状態へ自動復旧できる
 
-High Availability
+高可用性（High Availability）
   = 障害中もサービス提供を継続できる
 ```
-
-今回の構成は Self Healing は機能したが、  
-`desiredCount = 1` のため High Availability ではない
 
 ---
 
@@ -429,7 +463,7 @@ High Availability
 `StopTask` が手動実行されたことは CloudTrail から確認できたが、  
 その操作が誤操作なのか意図的な障害試験なのかまでは判別できなかった
 
-![](./images/10_devops_agent_investigation/)
+![RCA](./images/10_devops_agent_investigation/scenario2_devops_agent_rca.png)
 
 このことから、Agent は観測可能な事実と推測を分離していることが分かる
 
@@ -449,21 +483,33 @@ Deployment Circuit Breaker
 Terraform による恒久化
 ```
 
-![](./images/10_devops_agent_investigation/)
+![緩和策](./images/10_devops_agent_investigation/scenario2_mitigation_plan.png)
 
 加えて RDS Multi-AZ など、システム全体の可用性改善も提案している
 
 ただし RDS Multi-AZ は今回の ALB 503 の直接的な再発防止ではないため、  
 「今回の Incident に対する対策」と「システム全体の可用性改善」は人間側で分離して評価する必要がある
 
+また、緩和計画の具体的な手順も提示される
+
+![緩和計画 1](./images/10_devops_agent_investigation/scenario2_mitigation_plan_step1.png)
+
+![緩和計画 2](./images/10_devops_agent_investigation/scenario2_mitigation_plan_step2.png)
+
+![緩和計画 3](./images/10_devops_agent_investigation/scenario2_mitigation_plan_step3.png)
+
+![緩和計画 4](./images/10_devops_agent_investigation/scenario2_mitigation_plan_step4.png)
+
+![緩和計画 5](./images/10_devops_agent_investigation/scenario2_mitigation_plan_step5.png)
+
 ---
 
 ### 5.8 調査時間
 
 本シナリオの検証では、  
-Investigation Timeline 上では、Root Cause 到達まで約 **10分30秒** 掛かった
+調査タイムライン上では、根本原因の特定まで約 **10分30秒** 掛かった
 
-![](./images/10_devops_agent_investigation/)
+![調査タイムライン](./images/10_devops_agent_investigation/scenario2_devops_agent_timeline_2.png)
 
 ---
 
@@ -474,19 +520,19 @@ Investigation Timeline 上では、Root Cause 到達まで約 **10分30秒** 掛
 | 障害 | Rails HTTP 500 | ECS Task Stop |
 | 種別 | Application | Infrastructure / Availability |
 | Agent に与えた情報 | HTTP 500 が発生 | `/tasks` に一時的に接続できない |
-| Root Cause | `RuntimeError` | `StopTask` + `desiredCount=1` |
+| 根本原因 | `RuntimeError` | `StopTask` + `desiredCount=1` |
 | Logs | Rails Log を調査 | アプリ 500 がないことを確認 |
 | Metrics | Target 5XX / ALB 5XX 等 | ALB 503 / HealthyHostCount 等 |
 | Audit | 変更履歴を確認 | CloudTrail `StopTask` を特定 |
 | 原因候補の除外 | ALB / ECS / RDS / Deployment | DNS / App / Deployment 等 |
-| Self Healing | 対象外 | Replacement Task まで追跡 |
-| Investigation Gap | 明示あり | 明示あり |
-| Mitigation Plan | あり | あり |
+| 自己回復 | 対象外 | 代替 Task まで追跡 |
+| 調査ギャップ | 明示あり | 明示あり |
+| 緩和計画 | あり | あり |
 | 調査時間 | 約15分35秒 | 約10分30秒 |
 | RCA | 成功 | 成功 |
 
 異なる種類の障害に対して、  
-どちらも症状から Root Cause まで自律的に到達したことを確認できた
+どちらも症状から根本原因の特定まで自律的に到達したことを確認できた
 
 ---
 
@@ -515,7 +561,7 @@ Rails Log の調査
 Stack Trace
    |
    v
-Root Cause の特定
+根本原因の特定
 ```
 
 DevOps Agent は、このような一連の調査に加えて、  
@@ -523,7 +569,7 @@ DevOps Agent は、このような一連の調査に加えて、
 
 今回は人手側は厳密な調査時間を計測していないため、定量的な速度比較は行わないが、  
 Scenario 1 では、障害内容を事前に把握した状態で人手調査を行った場合でも、  
-ログレベルで原因を確認するまで一定の時間を要した  
+ログレベルで原因を確認するまで一定の時間を要した（約10～20分）  
 
 初見のインシデントでは、対象リソースや確認すべき Telemetry の選定から始めるため、  
 さらに調査時間が増える可能性がある
@@ -538,7 +584,7 @@ DevOps Agent に委譲できる範囲が大きいことを確認できた
 今回の検証では、以下のような調査トイルを Agent が自律的に実行した
 
 ```text
-Incident
+インシデント
    |
    v
 対象システムの特定
@@ -558,62 +604,63 @@ Topology / Telemetry の収集
 証拠収集 / 反証
    |
    v
-Root Cause Analysis
+根本原因分析
    |
-   ├─ Supporting Evidence
-   ├─ Investigation Gap
+   ├─ 裏付けとなる証拠
+   ├─ 調査ギャップ
    |
    v
-Mitigation Plan
+緩和計画
    |
-   ├─ Prepare
-   ├─ Pre Validate
-   ├─ Apply
-   ├─ Post Validate
+   ├─ ステップ 1: 準備
+   ├─ ステップ 2: 事前検証
+   ├─ ステップ 3: 適用
+   ├─ ステップ 4: 事後検証
    └─ ロールバック
 ```
 
 従来、人間が複数の AWS Console や Logs Insights を行き来して実施していた調査を、  
-一つの Investigation として整理できる点は大きい
+一つの調査報告として整理できる点は大きい
 
 ---
 
 ## 9. 人間（SRE）が判断すべき作業
 
 DevOps Agent が RCA と改善案を提示できたとしても、  
-運用判断そのものを無条件に委譲すべきではない
+その内容をそのまま運用判断として採用すべきではない
 
 例えば今回の提案でも、以下は人間側で判断が必要だった
 
-- Alarm Threshold の変更が SLO / Traffic 特性に対して妥当か
+- Alarm Threshold の変更が SLO やトラフィック特性に対して妥当であるか
 - `desiredCount = 2` による可用性向上とコスト増のバランス
-- RDS Multi-AZ が今回の Incident 対策として必要か
-- 提案された変更が Terraform の Source of Truth と整合するか
-- 本番環境で変更を実行してよいタイミングか
-- Business Impact と変更リスクのどちらを優先するか
+- RDS Multi-AZ が今回のインシデント対策として必要か
+- 提案された緩和計画の方法が Terraform の Source of Truth と整合するか
+- 本番環境で変更を実行しても問題ないか
+- ビジネスへの影響と変更リスクのどちらを優先するか
 
 したがって、現時点で想定する役割分担は以下となる
 
 ```text
 DevOps Agent
-  Investigation / RCA / Evidence / Proposal
+  調査 / 根本原因の分析 / エビデンスの収集 / 緩和計画の提案
                      |
                      v
-Human / SRE
-  Validate / Prioritize / Approve / Design
+SRE（人間）
+  分析結果の確認 / 対応の優先度付け / 承認 / 設計の更新
                      |
                      v
-Implementation
+システムに実装
 ```
 
-SRE の仕事を単純に置き換えるというより、Telemetry の収集や一次分析に費やしていた時間を減らし、  
+単純に SRE の仕事を Agent に代替させるというよりも、  
+DevOps Agent によって Telemetry の収集や一次分析に費やす時間を減らすことができ、  
 人間は設計・リスク評価・意思決定へ集中するための仕組みとして有効であると考える
 
 ---
 
 ## 10. 今回確認できた制約・改善ポイント
 
-### Source Repository Integration
+### Source Repository と接続した調査
 
 Source Repository が未接続だったため、Scenario 1 ではコード差分や CI/CD 履歴を取得できなかった
 
@@ -624,12 +671,12 @@ Incident
    |
 Telemetry
    +
-Deployment history
+Deployment 履歴
    +
-Code diff
+Code 差分
    |
    v
-「どの変更が Incident を引き起こしたか」
+「どの変更がインシデントを引き起こしたか」
 ```
 
 ---
@@ -643,20 +690,21 @@ DB Performance Incident を検証する場合は Observability の追加が必�
 
 ---
 
-### Human Intent
+### 人間の意図の判断（誤操作か意図的な操作か）
 
-CloudTrail から「誰が・いつ・どの API を実行したか」は確認できても、「なぜ実行したか」までは必ずしも判断できない
+CloudTrail から「誰が・いつ・どの API を実行したか」は確認できても、  
+「なぜ実行したか」までは必ずしも判断できない
 
-Agent がこの点を Investigation Gap として明示したことは、AI の推測を事実として扱わないためにも重要だった
+Agent がこの点を調査ギャップとして明示したことで、推測と事実の分離ができていることが分かる
 
 ---
 
 ## 11. SRE 運用への組み込み案
 
-今回の検証結果から、以下の インシデント対応 Flow が考えられる
+今回の検証結果から、以下のインシデント対応フローが考えられる
 
 ```text
-Incident / Alert
+インシデント発生 / アラート作動
        |
        v
 Observability
@@ -665,36 +713,37 @@ CloudWatch / New Relic / etc.
        v
 AWS DevOps Agent
        |
-       ├─ Scope
-       ├─ Telemetry collection
-       ├─ Hypothesis
-       ├─ RCA
-       ├─ Investigation Gap
-       ├─ Mitigation Plan
+       ├─ 影響範囲の特定
+       ├─ Telemetry 収集
+       ├─ 仮説の生成
+       ├─ 根本原因の分析
+       ├─ 調査ギャップ
+       ├─ 緩和計画
        |
        v
-Human / SRE Review
+SRE（人間）によるレビュー
        |
-       ├─ Evidence は妥当か
-       ├─ Gap は許容できるか
+       ├─ エビデンスは妥当か
+       ├─ 調査ギャップは許容できるか
        ├─ 提案は SLO と整合するか
-       ├─ Risk / Cost は許容できるか
+       ├─ 緩和策のリスクやコストは許容できるか
        ├─ IaC と整合するか
        |
        v
-Decision
+意思決定（何を・どのように対策するか）
        |
        v
-Change / Recovery
+変更 / 復旧作業
        |
        v
-Post Validation
+事後検証（変更によって問題が解決されたか）
 ```
 
-期待できる業務改善は、単なる「AI に質問する」ことではなく、  
-Incident 発生後の初動調査を Agent に委譲し、人間がレビューと意思決定に集中することである
+期待できる業務改善は、単に「AI に質問する」ことではなく、  
+インシデント発生後の初動調査を Agent に担当させ、人間がレビューと意思決定に集中できることである
 
-特に少人数の SRE / Platform Team では、複数サービスの Telemetry を横断して初動調査する負荷を下げられる可能性がある
+特に少人数の SRE / Platform チームでは、  
+複数サービスの Telemetry を横断して初動調査する負荷を下げられる可能性がある
 
 ---
 
@@ -702,26 +751,28 @@ Incident 発生後の初動調査を Agent に委譲し、人間がレビュー�
 
 実業務への導入を判断する場合、今回の成功例だけでなく以下も評価する必要がある
 
-| Category | 評価ポイント |
+| 評価軸 | 評価ポイント |
 | --- | --- |
-| Accuracy | Root Cause の正答率、誤った RCA の頻度 |
+| Accuracy | 根本原因の特定率、誤った RCA の頻度 |
 | Coverage | AWS / Application / DB / External Service のどこまで調査可能か |
 | MTTR | 人手運用と比較して検知〜原因特定〜復旧まで短縮できるか |
 | Observability | 既存の CloudWatch / New Relic 等を活用できるか |
 | Security | Agent Role、Operator Access、Elevated Action の権限設計 |
-| Safety | Human Approval、ロールバック、変更範囲の制御 |
+| Safety | 人間による承認、ロールバック、Agent の変更範囲の制御 |
 | IaC | Terraform 等の Source of Truth と整合できるか |
 | Cost | Agent 利用料と削減できる運用工数のバランス |
 | Auditability | 調査根拠、実行操作、変更履歴を追跡できるか |
-| Team Fit | On-call / Incident Management プロセスへ組み込めるか |
+| Team Fit | オンコール / インシデント管理のプロセスに組み込めるか |
 
-本番導入前には、正常系だけでなく誤検知、複合障害、Telemetry 不足、権限不足などを含めた追加評価が必要となる
+本番導入前には、  
+正常系だけでなく誤検知、複合障害、Telemetry 不足、権限不足などを含めた追加評価が必要となる
 
 ---
 
 ## 13. 検証結果
 
-今回の 2 Scenario では、AWS DevOps Agent はどちらも症状のみの入力から Root Cause まで到達した
+今回の 2 Scenario では、  
+AWS DevOps Agent はどちらも症状のみの入力から根本原因まで到達できた
 
 ```text
 Scenario 1
@@ -739,22 +790,22 @@ Temporary connection failure
   -> 約10分30秒
 ```
 
-また Root Cause の提示だけでなく、  
-Supporting Evidence、Investigation Gap、Mitigation Plan、Validation、ロールバック まで整理された
+また根本原因の提示だけでなく、  
+エビデンス収集、調査ギャップ、緩和計画、事後検証、ロールバック まで整理した
 
 本検証から、以下の運用モデルには十分な検討価値があると判断した
 
 ```text
-Incident 発生
+インシデント発生
      |
      v
-DevOps Agent に Investigation を依頼
+DevOps Agent に調査を依頼
      |
      v
-概要 / Root Cause / Evidence / Gap / Mitigation を生成
+概要 / 根本原因 / エビデンス / 調査ギャップ / 緩和計画を生成
      |
      v
-Human / SRE がレビュー
+SRE（人間）によるレビュー
      |
      v
 具体的な対応を判断
@@ -763,21 +814,21 @@ Human / SRE がレビュー
 人間が一つずつ Metrics / Logs / Events を探索して RCA を組み立てるのではなく、  
 Agent が一次調査と RCA を組み立て、人間がその証拠と提案をレビューする
 
-この役割分担により、SRE は反復的な調査作業を減らし、  
+この役割分担により、SRE 担当者は反復的な調査作業を減らし、  
 可用性設計、リスク評価、改善施策、意思決定など、より高いレイヤーの仕事へ時間を使える可能性がある
 
 ---
 
 ## 14. 今後の検証
 
-- Source Repository / CI/CD Integration を追加し、Code Diff まで含めた RCA を検証する
+- Source Repository / CI/CD Integration を追加し、コード差分まで含めた RCA を検証する
 - New Relic 等の Observability Platform と接続した場合の調査範囲を確認する
 - Database Performance Incident を追加する
-- CPU / Memory saturation など Performance Incident を追加する
-- 複数障害が同時発生する Scenario を検証する
+- CPU / Memory の飽和などパフォーマンスに起因したインシデントシナリオを追加検証する
+- 複数障害が同時発生するシナリオを検証する
 - 誤った仮説を Agent が適切に棄却できるか評価する
 - Investigation Feedback / Memory による継続的な精度改善を確認する
-- Elevated Actions を利用する場合の Human Approval / IAM Guardrail を検証する
+- Elevated Actions を利用する場合の、人間による承認 / IAM Guardrail を検証する
 - Agent 利用コストと MTTR / 運用工数削減効果を比較する
 
 ---
