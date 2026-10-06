@@ -233,7 +233,7 @@ Target 5XX を確認
    |      -> CPU / DB / latency に異常なし（即時応答）
    |
    ├─ Deployment / infrastructure change
-   |      -> 原因として除外（リポジトリ未接続でコード差分を取得不可）
+   |      -> 原因として除外（リポジトリ未接続のためコード差分までは確認できず）
    |
    v
 CloudWatch Logs
@@ -387,8 +387,8 @@ DevOps Agent は以下を確認した
 - Rails アプリケーション層の 500 は発生していない
 - DNS / Route 53 は正常
 - 同時間帯の Deployment / Infrastructure Change はなし
-- CloudTrail から `StopTask` を検出
-- `stopCode = UserInitiated`
+- CloudTrail から `StopTask` API 実行を検出
+- ECS Taskの停止情報から `stopCode = UserInitiated` を確認
 - ECS Service が Replacement Task を起動
 - 約 1〜2 分で Self Healing
 
@@ -445,7 +445,7 @@ DevOps Agent は、ECS Service によって代替 Task が自動起動され、
 今回の構成は ECS の自己回復は機能したが、  
 `desiredCount = 1` による冗長性欠如を指摘している
 
-そのため高可用性を実現するために、  
+単一 Task 障害時にもサービス継続できる構成に近づけるために、  
 `desiredCount = 2` への引き上げと 2AZ分散を推奨している
 
 ```text
@@ -474,13 +474,14 @@ DevOps Agent は、ECS Service によって代替 Task が自動起動され、
 Agent は主に以下を提案した
 
 ```text
-ECS desiredCount >= 2
-        +
-Multi-AZ distribution
-        +
-Deployment Circuit Breaker
-        +
-Terraform による恒久化
+「今回のインシデントの直接的な対策」
+→ ECS Task の冗長化・AZ 分散
+
+「周辺のレジリエンス改善」
+→ Deployment Circuit Breaker・RDS Multi-AZ
+
+「構成の恒久化」
+→ Terraform
 ```
 
 ![緩和策](./images/10_devops_agent_investigation/scenario2_mitigation_plan.png)
@@ -533,6 +534,8 @@ Terraform による恒久化
 
 異なる種類の障害に対して、  
 どちらも症状から根本原因の特定まで自律的に到達したことを確認できた
+
+※ Agent の調査時間は、調査開始から調査タイムライン上で根本原因が確定するまでを計測している
 
 ---
 
