@@ -233,8 +233,8 @@ Target 5XX を確認
    |      -> CPU / DB / latency に異常なし（即時応答）
    |
    ├─ Deployment / infrastructure change
-   |      -> 原因として除外（リポジトリ未接続のためコード差分までは確認できず）
-   |
+   |      -> 同時間帯のAWS側の変更は確認されず、変更起因の可能性は低い
+   |        （リポジトリ未接続のためコード差分までは確認できず）
    v
 CloudWatch Logs
    |
@@ -374,6 +374,10 @@ ECS や Task の状態については一切伝えず、ユーザー視点の症�
 > https://app.saxon-aws-lab.click/tasks に一時的に接続できなくなったから、原因を調べてみて！
 
 ![DevOps Agent アプリ](./images/10_devops_agent_investigation/scenario2_devops_agent_input.png)
+
+※ Scenario 2 は Scenario 1 と同一の調査コンテキスト上で実施したため、  
+Agent は前回調査の情報を参照可能であり、完全に独立した検証ではない  
+（障害原因そのものは入力しておらず、根本原因は指示後に CloudTrail / Metrics / Resource State から特定している）
 
 ---
 
@@ -525,7 +529,7 @@ Agent は主に以下を提案した
 | Logs | Rails Log を調査 | アプリ 500 がないことを確認 |
 | Metrics | Target 5XX / ALB 5XX 等 | ALB 503 / HealthyHostCount 等 |
 | Audit | 変更履歴を確認 | CloudTrail `StopTask` を特定 |
-| 原因候補の除外 | ALB / ECS / RDS / Deployment | DNS / App / Deployment 等 |
+| 原因候補の除外 | ALB / ECS / RDS / AWS 側の変更 | DNS / App / Deployment 等 |
 | 自己回復 | 対象外 | 代替 Task まで追跡 |
 | 調査ギャップ | 明示あり | 明示あり |
 | 緩和計画 | あり | あり |
