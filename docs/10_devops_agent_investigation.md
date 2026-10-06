@@ -764,7 +764,7 @@ SRE（人間）によるレビュー
 | Coverage | AWS / Application / DB / External Service のどこまで調査可能か |
 | MTTR | 人手運用と比較して検知〜原因特定〜復旧まで短縮できるか |
 | Observability | 既存の CloudWatch / New Relic 等を活用できるか |
-| Security | Agent Role、Operator Access、Elevated Action の権限設計 |
+| Security | Agent Role、Operator Access、Elevated Role / Directed Actions の権限設計 |
 | Safety | 人間による承認、ロールバック、Agent の変更範囲の制御 |
 | IaC | Terraform 等の Source of Truth と整合できるか |
 | Cost | Agent 利用料と削減できる運用工数のバランス |
@@ -835,7 +835,7 @@ Agent が一次調査と RCA を組み立て、人間がその証拠と提案を
 - 複数障害が同時発生するシナリオを検証する
 - 誤った仮説を Agent が適切に棄却できるか評価する
 - Investigation Feedback / Memory による継続的な精度改善を確認する
-- Elevated Actions を利用する場合の、人間による承認 / IAM Guardrail を検証する
+- Directed Actions / Elevated Role を利用する場合の、人間による承認 / IAM Guardrail を検証する
 - Agent 利用コストと MTTR / 運用工数削減効果を比較する
 
 ---
