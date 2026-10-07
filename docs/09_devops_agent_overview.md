@@ -392,7 +392,7 @@ Agent の AWSアクセス権限
 
 ---
 
-## 10. Investigation Guardrail
+## 10. Permission Guardrail
 
 Agent Space Role に強い IAM 権限を与えたからといって、  
 Agent がそのすべてを自由に利用できるわけではない
@@ -596,7 +596,7 @@ ECS障害調査Agent
 
 のように、利用する Tools / Skills / Memory を用途に合わせて構成できる
 
-Trigger を利用すれば、Custom Agent をスケジュールなどの条件で起動することもできる
+Trigger を利用すれば、Custom Agent をスケジュールベースで自動実行できる
 
 最初の DevOps Agent 検証では必須ではなく、標準 Agent の能力を確認した後に検討する
 
