@@ -11,12 +11,8 @@ on:
     branches:
       - develop
       - main
-    # Terraform 関連ファイルを含む PR でトリガー
-    paths:
-      - "terraform/**"
-      - ".github/workflows/terraform.yml"
   
-  # CD は Merge して develop に push するタイミング
+  # CD は Terraform 関連ファイルが変更された develop push のみ
   push:
     branches:
       - develop
@@ -25,7 +21,6 @@ on:
       - ".github/workflows/terraform.yml"
 
 permissions:
-  id-token: write
   contents: read
 
 jobs:
@@ -34,6 +29,10 @@ jobs:
     name: Terraform Plan
     if: github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
+
+    permissions:
+      id-token: write
+      contents: read
 
     env:
       TF_VAR_slack_workspace_id: ${{ vars.TF_VAR_slack_workspace_id }}
@@ -46,32 +45,64 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Detect Terraform changes
+        id: changes
+        shell: bash
+        working-directory: .
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "terraform=true" >> "$GITHUB_OUTPUT"
+            echo "Manual run: Terraform Plan will run."
+            exit 0
+          fi
+
+          if git diff --quiet \
+            "${{ github.event.pull_request.base.sha }}" \
+            "${{ github.event.pull_request.head.sha }}" \
+            -- terraform/ .github/workflows/terraform.yml; then
+
+            echo "terraform=false" >> "$GITHUB_OUTPUT"
+            echo "No Terraform-related changes. Terraform steps will be skipped."
+          else
+            echo "terraform=true" >> "$GITHUB_OUTPUT"
+            echo "Terraform-related changes detected."
+          fi
 
       - name: Configure AWS credentials
+        if: steps.changes.outputs.terraform == 'true'
         uses: aws-actions/configure-aws-credentials@v5
         with:
           role-to-assume: arn:aws:iam::867344446779:role/rails-aws-sre-lab-github-actions-terraform-role
           aws-region: ap-northeast-1
 
       - name: Verify AWS identity
+        if: steps.changes.outputs.terraform == 'true'
         run: aws sts get-caller-identity
 
       # terraform fmt -> terraform validate -> terraform plan
       - name: Setup Terraform
+        if: steps.changes.outputs.terraform == 'true'
         uses: hashicorp/setup-terraform@v3
 
       - name: Terraform Format Check
+        if: steps.changes.outputs.terraform == 'true'
         run: terraform fmt -check -recursive
 
       # この Terraform ディレクトリを実行可能な状態に初期化するコマンド
       # (backend.tf をもとに S3 Backend に接続することで Remote State を使って plan できるようにする、ことも含む)
       - name: Terraform Init
+        if: steps.changes.outputs.terraform == 'true'
         run: terraform init -input=false
 
       - name: Terraform Validate
+        if: steps.changes.outputs.terraform == 'true'
         run: terraform validate
 
       - name: Terraform Plan
+        if: steps.changes.outputs.terraform == 'true'
         run: terraform plan -input=false -no-color
 
   # CD (terraform apply) を実行
@@ -80,6 +111,10 @@ jobs:
     # push イベント かつ push 先が develop ブランチであれば実行
     if: github.event_name == 'push' && github.ref == 'refs/heads/develop'
     runs-on: ubuntu-latest
+
+    permissions:
+      id-token: write
+      contents: read
 
     env:
       TF_VAR_slack_workspace_id: ${{ vars.TF_VAR_slack_workspace_id }}
