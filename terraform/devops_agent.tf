@@ -40,7 +40,6 @@ resource "awscc_devopsagent_association" "monitoring_account" {
       assumable_role_arn = aws_iam_role.devops_agent_space.arn
       account_id         = data.aws_caller_identity.current.account_id
       account_type       = "monitor"
-      resources          = []
     }
   }
 
