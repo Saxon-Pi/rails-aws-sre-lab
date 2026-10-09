@@ -60,3 +60,76 @@ resource "aws_iam_role_policy_attachment" "kiro_discovery_view_only" {
   role       = aws_iam_role.kiro_discovery.name
   policy_arn = "arn:aws:iam::aws:policy/job-function/ViewOnlyAccess"
 }
+
+// Kiro 調査用の補足 Policy
+data "aws_iam_policy_document" "kiro_discovery_supplemental" {
+  statement {
+    sid    = "InspectEcsExecutionRole"
+    effect = "Allow"
+
+    actions = [
+      "iam:GetRole",
+      "iam:GetRolePolicy",
+      "iam:ListRolePolicies",
+      "iam:ListAttachedRolePolicies",
+      "iam:ListRoleTags",
+    ]
+
+    resources = [
+      "arn:aws:iam::${data.aws_caller_identity.current.account_id}:role/rails-aws-sre-lab-ecs-task-execution-role"
+    ]
+  }
+
+  statement {
+    sid    = "InspectManagedPolicy"
+    effect = "Allow"
+
+    actions = [
+      "iam:GetPolicy",
+      "iam:GetPolicyVersion",
+      "iam:ListPolicyVersions",
+    ]
+
+    resources = [
+      "arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy"
+    ]
+  }
+
+  statement {
+    sid    = "InspectInfrastructureDetails"
+    effect = "Allow"
+
+    actions = [
+      "acm:DescribeCertificate",
+      "elasticloadbalancing:DescribeRules",
+      "elasticloadbalancing:DescribeTargetGroupAttributes",
+      "ecr:DescribeImages",
+    ]
+
+    resources = ["*"]
+  }
+
+  statement {
+    sid    = "InspectApplicationAutoScaling"
+    effect = "Allow"
+
+    actions = [
+      "application-autoscaling:DescribeScalableTargets",
+      "application-autoscaling:DescribeScalingPolicies",
+      "application-autoscaling:DescribeScheduledActions",
+      "application-autoscaling:DescribeScalingActivities",
+    ]
+
+    resources = ["*"]
+  }
+}
+
+resource "aws_iam_policy" "kiro_discovery_supplemental" {
+  name   = "rails-aws-sre-lab-kiro-discovery-supplemental"
+  policy = data.aws_iam_policy_document.kiro_discovery_supplemental.json
+}
+
+resource "aws_iam_role_policy_attachment" "kiro_discovery_supplemental" {
+  role       = aws_iam_role.kiro_discovery.name
+  policy_arn = aws_iam_policy.kiro_discovery_supplemental.arn
+}
