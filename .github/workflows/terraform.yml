@@ -37,6 +37,7 @@ jobs:
     env:
       TF_VAR_slack_workspace_id: ${{ vars.TF_VAR_slack_workspace_id }}
       TF_VAR_slack_channel_id: ${{ vars.TF_VAR_slack_channel_id }}
+      TF_VAR_kiro_user_id: ${{ vars.TF_VAR_kiro_user_id }}
 
     defaults:
       run:
@@ -119,6 +120,7 @@ jobs:
     env:
       TF_VAR_slack_workspace_id: ${{ vars.TF_VAR_slack_workspace_id }}
       TF_VAR_slack_channel_id: ${{ vars.TF_VAR_slack_channel_id }}
+      TF_VAR_kiro_user_id: ${{ vars.TF_VAR_kiro_user_id }}
 
     defaults:
       run:
