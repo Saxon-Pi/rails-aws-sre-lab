@@ -252,6 +252,41 @@ terraform plan後は以下をHuman Review用に整理してください。
 - その介入後にKiroが何を実行したか
 
 
+## GitHub Repository / 成果物
+
+Terraformコードの生成先は、Kiro Webに接続済みの以下のGitHub Repositoryです。
+
+Saxon-Pi/rails-aws-sre-lab-kiro
+
+Terraform生成フェーズでは、このRepositoryをcloneして作業してください。
+
+生成したTerraformコードはSandbox内だけに残さず、
+以下の手順でGitHubへ反映してください。
+
+1. Repository内にTerraformコードを生成する
+2. terraform fmt を実行する
+3. terraform validate を実行する
+4. terraform plan を実行する
+5. Errorがあれば原因を分析・修正する
+6. 変更内容をGit commitする
+7. 作業BranchをGitHubへpushする
+8. Human Review用のPull Requestを作成する
+
+既存のdefault branchへ直接pushまたはmergeしないでください。
+
+Pull Requestには少なくとも以下を記載してください。
+
+- Discoveryした既存AWS構成の要約
+- 生成したTerraform Resource
+- 既存環境との主な差分
+- Terraform Plan結果
+- IAM / Security Group / Network / RDSのレビュー観点
+- 未解決事項
+- Human Interventionが必要だった箇所
+
+Pull Requestのmergeは人間が判断します。
+
+
 ## 現時点での指示
 
 まずはTerraformを生成しないでください。
