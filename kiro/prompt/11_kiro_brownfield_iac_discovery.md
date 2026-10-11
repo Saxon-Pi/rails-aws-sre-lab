@@ -161,21 +161,21 @@ Terraformは新しいRepository内に作成してください。
 
 以下のようにResourceの責務ごとにファイルを分割してください。
 
-versions.tf
-providers.tf
-variables.tf
-outputs.tf
-network.tf
-security_group.tf
-iam.tf
-ecr.tf
-ecs.tf
-alb.tf
-rds.tf
-secrets.tf
-route53.tf
-acm.tf
-monitoring.tf
+- versions.tf
+- providers.tf
+- variables.tf
+- outputs.tf
+- network.tf
+- security_group.tf
+- iam.tf
+- ecr.tf
+- ecs.tf
+- alb.tf
+- rds.tf
+- secrets.tf
+- route53.tf
+- acm.tf
+- monitoring.tf
 
 必要に応じてファイルは追加・整理して構いません。
 
@@ -199,9 +199,11 @@ monitoring.tf
 
 生成後は以下を順番に実施してください。
 
+```bash
 terraform fmt
 terraform validate
 terraform plan
+```
 
 Errorが発生した場合は、
 すぐに人間へ修正方法を尋ねるのではなく、
