@@ -1,3 +1,4 @@
+<!-- omit in toc -->
 # 11. Kiro Brownfield IaC 検証記録 / 実務 Runbook
 
 > **Status:** Draft v0.1  
@@ -8,40 +9,56 @@
 
 ---
 
-## 0. このドキュメントの目的
+<!-- omit in toc -->
+## 目次
 
-このドキュメントは、Kiro を利用して既存 AWS 環境を Brownfield IaC 化する検証について、以下の3つを同時に満たすことを目的とする
+- [0. 目的](#0-目的)
+- [1. 検証の背景](#1-検証の背景)
+- [2. 検証ルール](#2-検証ルール)
+- [3. 検証フェーズ](#3-検証フェーズ)
+- [4. Kiro 環境の準備](#4-kiro-環境の準備)
+- [5. Discovery Role](#5-discovery-role)
+- [6. Discovery 開始前の疎通確認](#6-discovery-開始前の疎通確認)
+- [7. Discovery Prompt](#7-discovery-prompt)
+- [8. 初回 Discovery 結果](#8-初回-discovery-結果)
+- [9. Human Review: Discovery Gap の評価](#9-human-review-discovery-gap-の評価)
+- [10. Supplemental Discovery Policy](#10-supplemental-discovery-policy)
+- [11. 再 Discovery](#11-再-discovery)
+- [12. 残った Discovery Gap](#12-残った-discovery-gap)
+- [13. Terraform Generation への Human Approval](#13-terraform-generation-への-human-approval)
+- [14. Kiro による Terraform Generation](#14-kiro-による-terraform-generation)
+- [15. Kiro の Terraform Validation](#15-kiro-の-terraform-validation)
+- [16. GitHub PR](#16-github-pr)
+- [17. Original Terraform vs Kiro Generated Terraform](#17-original-terraform-vs-kiro-generated-terraform)
+- [18. Original Terraform と異なる重要ポイント](#18-original-terraform-と異なる重要ポイント)
+- [19. Kiro の精度評価](#19-kiro-の精度評価)
+- [20. Human Intervention 一覧](#20-human-intervention-一覧)
+- [21. Secret / Artifact Responsibility](#21-secret--artifact-responsibility)
+- [22. RAILS\_MASTER\_KEY とは](#22-rails_master_key-とは)
+- [23. Terraform State 方針](#23-terraform-state-方針)
+- [24. Discovery Role と Deployment Role の分離](#24-discovery-role-と-deployment-role-の分離)
+- [25. 今後の Deployment Runbook](#25-今後の-deployment-runbook)
+- [26. Kiro Deployment Prompt の設計方針](#26-kiro-deployment-prompt-の設計方針)
+- [27. Terraform初回Deployの論点](#27-terraform初回deployの論点)
+- [28. Apply 前の追加 Review 項目](#28-apply-前の追加-review-項目)
+- [29. Cost / Credits 記録](#29-cost--credits-記録)
+- [30. Cleanup Runbook](#30-cleanup-runbook)
+- [31. 実務で再利用する場合の標準フロー](#31-実務で再利用する場合の標準フロー)
+- [32. 現時点の結論](#32-現時点の結論)
+- [33. ブログ記事へ展開する場合の構成案](#33-ブログ記事へ展開する場合の構成案)
+- [34. 画像候補一覧](#34-画像候補一覧)
+- [35. 今後追記する内容](#35-今後追記する内容)
 
-1. **検証記録**
-   - 実際に何を行ったか
-   - どのようなエラーや制約があったか
-   - Kiro がどこまで自律的に対応できたか
-   - どこで Human Intervention が必要だったか
+---
 
-2. **実務 Runbook**
-   - 同じような Brownfield IaC 化を Kiro に実施させる際の再利用可能な手順書
-   - Discovery と Deployment を分離し、安全に権限を段階付与する方法
-   - Secret / Artifact / Terraform State の管理境界
+# 0. 目的
 
-3. **ブログ記事の元原稿**
-   - 背景
-   - 構成
-   - 実際の失敗
-   - Kiro の精度評価
-   - 人間が判断すべきポイント
-   - 実務で使う場合の注意点
+このドキュメントは、  
+Kiro を利用して既存 AWS 環境を Brownfield IaC 化する検証結果をまとめたものである
 
-> [!IMPORTANT]
-> 公開前には、スクリーンショット・ログ・コード中の以下を必ずマスキングする
->
-> - AWS Account ID
-> - Kiro / Identity Center User ID
-> - IAM User / Role の不要な識別情報
-> - Source IP
-> - Secret ARN のランダムサフィックス
-> - 必要に応じて Resource ID
->
-> ALB DNS 名や一般的なリソース名そのものは Credential ではないが、公開範囲は記事の目的に応じて判断する
+> Brownfield IaC 化：既存の AWS 環境をゼロから新規設計するのではなく、現在稼働しているリソース構成・依存関係・設定を調査し、それを Terraform などの IaC コードとして再構築可能な形に落とし込むこと  
+> 
+> 新規環境をゼロから構築する Greenfield に対し、既存環境を解析してIaC化するアプローチを Brownfield と呼ぶ
 
 ---
 
@@ -49,9 +66,10 @@
 
 ## 1.1 これまでの `rails-aws-sre-lab`
 
-既存の `rails-aws-sre-lab` では、Rails アプリを AWS 上で稼働させるための環境を Terraform で管理している
+既存の `rails-aws-sre-lab` では、  
+Rails アプリを AWS 上で稼働させるための環境を Terraform で管理している
 
-主要構成は以下
+システムの主要構成は以下となる
 
 ```text
 Internet
@@ -76,66 +94,59 @@ ECS Fargate
 RDS PostgreSQL
 ```
 
-特徴:
+Terraform で管理しているリソース一覧:
 
-- ECS Fargate
-- ARM64
-- CPU 256 / Memory 512 MiB
+- ECS Fargate (ARM64, CPU 256 / Memory 512 MiB)
+- ECS Application Auto Scaling
 - ALB
 - RDS PostgreSQL
-- NAT Gateway なし
-- VPC Endpoint 利用
+- VPC Endpoint (NAT Gateway 未使用)
 - Secrets Manager
 - CloudWatch Logs
-- ECS Application Auto Scaling
 - Route 53 / ACM
-- Terraform Remote State
-- GitHub Actions / OIDC
+- Terraform Remote State (S3 Bucket)
 - CloudWatch Dashboard / Alarm
-- SNS / Slack
-- ECS EventBridge Event Capture
+- SNS / Amazon Q Developer (Slack 通知)
+- EventBridge (ECS Event Capture)
 - AWS DevOps Agent
 
 ---
 
 ## 1.2 今回のテーマ
 
-今回の検証では、**既存 Terraform を Kiro に一切見せない**
+今回の検証では、  
+**既存 Terraform を Kiro に一切見せずに、システムの機能を再現できる IaC コードを生成させる**  
+ことを目標とする
 
-Kiro が参照してよいものは、原則として以下のみ
+Kiro が参照してよいものは、原則として以下のみとする
 
-```text
-AWS 実環境
-+
-検証目的 / 制約
-+
-Human が明示的に与えた要件
-```
+- AWS 実環境
+- プロンプト（人間が定義した IaC 化における要件や制約）
 
 Kiro に以下を実施させる
 
 ```text
-AWS APIによるRead-only Discovery
+AWS API による環境調査（Read-only Discovery）
         ↓
-Resource Inventory
+リソースの一覧化
         ↓
-Dependencies
+依存関係の調査
         ↓
-Architecture理解
+アーキテクチャの理解
         ↓
-IaC化対象の判断
+IaC 化対象の判断
         ↓
-Human Review
+Kiro が提示した IaC 化計画の人間によるレビュー・承認
         ↓
-Terraform生成
+Terraform 生成
         ↓
 fmt / validate / plan
         ↓
-Human Review
+Kiro が生成した IaC の人間によるレビュー・承認
         ↓
-Deployment
+デプロイ（apply）
         ↓
-End-to-End Validation
+End-to-End バリデーション・テスト
 ```
 
 ---
@@ -144,19 +155,21 @@ End-to-End Validation
 
 ## 2.1 Kiro に見せないもの
 
-以下は Brownfield 解析時の答え合わせを防ぐため、Kiro に見せない
+以下は IaC 生成時に模範解答として使用される可能性があるため、Kiro には見せない
 
 - 既存 `rails-aws-sre-lab` の Terraform
+  - https://github.com/Saxon-Pi/rails-aws-sre-lab/tree/develop/terraform
 - 既存 Terraform State
-- 人間が過去に決めた Terraform 設計意図
-- Rails ソースコード（少なくとも Discovery / IaC 生成フェーズでは不要）
-- 既存 Infrastructure の手動設計メモ
+- Terraform の設計意図などを記載したメモやドキュメント類
+- Rails ソースコード
 
-Kiro の GitHub App は、専用 private repository のみ許可する
+Kiro が生成した IaC をプッシュする際は、専用プライベートリポジトリを使用させる
 
 ```text
 Saxon-Pi/rails-aws-sre-lab-kiro
 ```
+
+![]()
 
 ---
 
