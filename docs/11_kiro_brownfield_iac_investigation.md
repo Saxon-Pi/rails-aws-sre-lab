@@ -165,45 +165,55 @@ End-to-End バリデーション・テスト
 
 Kiro が生成した IaC をプッシュする際は、専用プライベートリポジトリを使用させる
 
-```text
-Saxon-Pi/rails-aws-sre-lab-kiro
-```
+- Saxon-Pi/rails-aws-sre-lab-kiro
+  - https://github.com/Saxon-Pi/rails-aws-sre-lab-kiro
 
-![]()
+https://app.kiro.dev/ にサインインして、  
+Settings > Connections からGitHubリポジトリと連携する
+
+![Connect to GitHub #1](./images/11_kiro_brownfield_iac_investigation/kiro_connect_to_github_1.png)
+
+![Connect to GitHub #2](./images/11_kiro_brownfield_iac_investigation/kiro_connect_to_github_2.png)
+
+今回は専用プライベートリポジトリ（rails-aws-sre-lab-kiro）のみ連携する
+
+![Connect to GitHub #3](./images/11_kiro_brownfield_iac_investigation/kiro_connect_to_github_3.png)
+
+![Connect to GitHub #4](./images/11_kiro_brownfield_iac_investigation/kiro_connect_to_github_4.png)
 
 ---
 
 ## 2.2 Kiro に与えるもの
 
-- AWS 実環境への Read-only access
-- 対象リージョン: `ap-northeast-1`
-- 新環境の要件
-- 新環境は既存環境と分離すること
-- Terraform を生成すること
-- Human Review 前に Apply しないこと
-- GitHub へ branch / commit / push / PR を作成すること
+- AWS 実環境へのアクセス権限（Read-only）
+- 対象リージョンの指定（`ap-northeast-1`）
+- 新環境の要件（既存環境と分離すること等）
+- タスクの目的（Terraform を生成すること）
+- タスクの制約
+  - 人間のレビュー・承認前に Apply しないこと
+  - GitHub に branch / commit / push / PR を作成すること
 
 ---
 
 ## 2.3 既存環境と新環境の関係
 
-Brownfield 解析対象は既存環境だが、Deploy 先は別環境とする
+IaC 化における解析対象は既存環境だが、生成した IaC のデプロイ先は別環境とする
 
 ```text
-Existing Brownfield Environment
+既存環境
 VPC 10.0.0.0/16
         │
-        │ Read-only Discovery
+        │ 環境の解析（Read-only）
         ▼
       Kiro
         │
-        │ Generate Terraform
+        │ Terraform 生成
         ▼
-New Kiro Environment
+Kiro による新規環境
 VPC 10.20.0.0/16
 ```
 
-既存環境への import / mutation は行わない
+既存環境に対するデプロイや変更は行わない
 
 ---
 
@@ -211,16 +221,16 @@ VPC 10.20.0.0/16
 
 | Phase | 内容 | 主担当 | 状態 |
 |---|---|---|---|
-| 1 | Kiro / GitHub / AWS Access 準備 | Human | ✅ 完了 |
-| 2 | AWS Brownfield Discovery | Kiro | ✅ 完了 |
-| 2.5 | Discovery Gap 解消 | Human + Kiro | ✅ 完了 |
-| 3 | Terraform Generation | Kiro | ✅ 完了 |
-| 3.5 | Generated IaC Human Review | Human | 🔄 実施中 |
-| 4 | Deployment Role / Deploy Session 準備 | Human | ⏳ 未実施 |
-| 5 | Prerequisite Infrastructure Deploy | Kiro | ⏳ 未実施 |
-| 6 | Application Artifact / Secret 投入 | Human | ⏳ 未実施 |
-| 7 | Full Deploy / Validation | Kiro | ⏳ 未実施 |
-| 8 | Final Acceptance / Cleanup | Human | ⏳ 未実施 |
+| 1 | Kiro / GitHub / AWS の準備・連携 | 人間 | ✅ 完了 |
+| 2 | AWS 環境の解析 | Kiro | ✅ 完了 |
+| 2.5 | Kiro が提示した IaC 化計画の調整 | 人間 + Kiro | ✅ 完了 |
+| 3 | Terraform 生成 | Kiro | ✅ 完了 |
+| 3.5 | 生成した IaC の人間によるレビュー | 人間 | 🔄 実施中 |
+| 4 | デプロイのための Role / プロンプト の準備 | 人間 | ⏳ 未実施 |
+| 5 | 第一段階デプロイ（ECR / Secrets Manager 等） | Kiro | ⏳ 未実施 |
+| 6 | Application Artifact / Secret 投入 | 人間 | ⏳ 未実施 |
+| 7 | 第二段階デプロイ / 検証 | Kiro | ⏳ 未実施 |
+| 8 | 最終レビュー・承認 / 後片付け | 人間 | ⏳ 未実施 |
 
 ---
 
@@ -228,7 +238,9 @@ VPC 10.20.0.0/16
 
 ## 4.1 Kiro Subscription
 
-Kiro Pro を利用
+今回の検証では Kiro Pro を利用する  
+
+サブスクするとクレジットが付与され、  Kiro を実行するとタスクの量に応じてクレジットが消費される
 
 検証開始時:
 
@@ -236,17 +248,20 @@ Kiro Pro を利用
 0 / 1000 credits used
 ```
 
-今後、以下のタイミングで Credit を記録する
+今後、以下のタイミングでクレジットを記録する
 
-- Discovery 前
-- Discovery 後
-- Terraform Generation 後
-- Plan / Fix 後
-- Deployment 後
+- AWS環境の解析前後
+- Terraform 生成後
+- terraform plan と修正後
+- デプロイ後
 - 最終合計
 
-> 📷 **IMAGE TODO:** Kiro Account / Credit 画面  
-> 公開時は User ID 等をマスクする
+ダッシュボードやプロフィールからクレジットの使用状況を確認することができる  
+※ 画像は検証途中のクレジット状況
+
+![Kiro Dashboard](./images/11_kiro_brownfield_iac_investigation/kiro_dashboard.png)
+
+![Kiro Account](./images/11_kiro_brownfield_iac_investigation/kiro_account.png)
 
 ---
 
