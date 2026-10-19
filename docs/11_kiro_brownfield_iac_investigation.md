@@ -168,19 +168,6 @@ Kiro が生成した IaC をプッシュする際は、専用プライベート�
 - Saxon-Pi/rails-aws-sre-lab-kiro
   - https://github.com/Saxon-Pi/rails-aws-sre-lab-kiro
 
-https://app.kiro.dev/ にサインインして、  
-Settings > Connections からGitHubリポジトリと連携する
-
-![Connect to GitHub #1](./images/11_kiro_brownfield_iac_investigation/kiro_connect_to_github_1.png)
-
-![Connect to GitHub #2](./images/11_kiro_brownfield_iac_investigation/kiro_connect_to_github_2.png)
-
-今回は専用プライベートリポジトリ（rails-aws-sre-lab-kiro）のみ連携する
-
-![Connect to GitHub #3](./images/11_kiro_brownfield_iac_investigation/kiro_connect_to_github_3.png)
-
-![Connect to GitHub #4](./images/11_kiro_brownfield_iac_investigation/kiro_connect_to_github_4.png)
-
 ---
 
 ## 2.2 Kiro に与えるもの
@@ -267,35 +254,62 @@ VPC 10.20.0.0/16
 
 ## 4.2 GitHub 接続
 
-GitHub Kiro Agent App をインストール
+https://app.kiro.dev/ にサインインして、  
+Settings > Connections からGitHubリポジトリと連携する
 
-Repository access:
+![Connect to GitHub #1](./images/11_kiro_brownfield_iac_investigation/kiro_connect_to_github_1.png)
 
-```text
-Only select repositories
-└─ Saxon-Pi/rails-aws-sre-lab-kiro
-```
+![Connect to GitHub #2](./images/11_kiro_brownfield_iac_investigation/kiro_connect_to_github_2.png)
 
-既存の `rails-aws-sre-lab` は許可していない
+今回は専用プライベートリポジトリ（rails-aws-sre-lab-kiro）のみ連携する
 
-これにより、Kiro は生成先 repository にはアクセスできるが、既存 Terraform を参照できない
+![Connect to GitHub #3](./images/11_kiro_brownfield_iac_investigation/kiro_connect_to_github_3.png)
+
+![Connect to GitHub #4](./images/11_kiro_brownfield_iac_investigation/kiro_connect_to_github_4.png)
+
+既存リポジトリ（`rails-aws-sre-lab`）へのアクセスは許可していないため、  
+Kiro は生成した IaC をプッシュする専用リポジトリにはアクセスできるが、  
+既存の Terraform を参照することはできない
 
 ---
 
-## 4.3 Kiro Web Sandbox
+## 4.3 Kiro Web の Sandbox 設定
 
-設定:
+最終的に Kiro を以下の設定にした
 
-```text
-GitHub              Connected
-Cloud Sessions      Enabled
-Network             Common dependencies
-AWS Credentials     Discovery Role
-```
+- GitHub: Connected
+- クラウドセッション (Kiro Web): 有効化
+- Network configuration Access level: Common dependencies
+- AWS Credentials: 分析用 Role を付与
 
-当初は `Repository access only` を利用していた
+GitHub: Connected
 
-しかし、AWS API へのアクセス時に 403 となった
+![Connect to GitHub](./images/11_kiro_brownfield_iac_investigation/kiro_connect_to_github_4.png)
+
+クラウドセッション (Kiro Web): 有効化
+
+![Kiro Console Settings](./images/11_kiro_brownfield_iac_investigation/kiro_console_settings.png)
+
+Network configuration Access level: Common dependencies  
+AWS Credentials: 分析用 Role を付与  
+→ [Role: kiro_discovery (kiro.tf)](../terraform/kiro.tf)
+
+![Kiro Network Settings](./images/11_kiro_brownfield_iac_investigation/kiro_sandbox_settings.png)
+
+当初は Network configuration で `Repository access only` を設定していたが、  
+AWS API へのアクセス時に 403 が発生した
+
+![Kiro Network Settings (before)](./images/11_kiro_brownfield_iac_investigation/kiro_sandbox_settings_before.png)
+
+Kiro に既存環境の一部リソースを対象に分析を指示
+
+![kiro_discovery_1(repository_access_only)](./images/11_kiro_brownfield_iac_investigation/kiro_discovery_1(repository_access_only).png)
+
+AWS API へのアクセス時に 403 で拒否され、リソースの読み取りが失敗した
+
+![kiro_discovery_2(repository_access_only)](./images/11_kiro_brownfield_iac_investigation/kiro_discovery_2(repository_access_only).png)
+
+![kiro_discovery_3(repository_access_only)](./images/11_kiro_brownfield_iac_investigation/kiro_discovery_3(repository_access_only).png)
 
 ### 発生した問題
 
@@ -307,6 +321,8 @@ Repository access only
 
 Kiro 自身が managed proxy / allowlist による通信制限と切り分けた
 
+![kiro_discovery_4(repository_access_only)](./images/11_kiro_brownfield_iac_investigation/kiro_discovery_4(repository_access_only).png)
+
 そのため Network configuration を変更
 
 ```text
@@ -315,18 +331,24 @@ Repository access only
 Common dependencies
 ```
 
-変更後:
+![Kiro Network Settings 1 (Common dependencies)](./images/11_kiro_brownfield_iac_investigation/kiro_network_settings_1(common_dependencies).png)
+
+![Kiro Network Settings 2 (Common dependencies)](./images/11_kiro_brownfield_iac_investigation/kiro_network_settings_2(common_dependencies).png)
+
+変更後のアクセス可否は以下のようになる
 
 ```text
-GitHub                      OK
-*.amazonaws.com             OK
-一般的な開発依存サービス     OK
-allowlist外の任意Web         NG
+GitHub                   アクセス OK
+*.amazonaws.com          アクセス OK
+一般的な開発依存サービス   アクセス OK
+allowlist 外の任意 Web    アクセス NG
 ```
 
-> 📷 **IMAGE TODO:** Repository access only で AWS API が拒否された画面  
-> 📷 **IMAGE TODO:** Common dependencies 変更画面  
-> 📷 **IMAGE TODO:** 変更後に VPC / ECS / RDS が取得できた画面
+再度 Kiro に同じ指示をすると、今度はリソースの読み取りに成功した
+
+![Kiro Discovery 1 (Common dependencies)](./images/11_kiro_brownfield_iac_investigation/kiro_discovery_1(common_dependencies).png)
+
+![Kiro Discovery 2 (Common dependencies)](./images/11_kiro_brownfield_iac_investigation/kiro_discovery_2(common_dependencies).png)
 
 ---
 
