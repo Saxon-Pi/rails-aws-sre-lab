@@ -1,10 +1,10 @@
 <!-- omit in toc -->
 # 11. Kiro Brownfield IaC 検証記録 / 実務 Runbook
 
-> **Status:** Draft v0.1  
-> **作成日:** 2026-10-11  
-> **対象:** `rails-aws-sre-lab` / `rails-aws-sre-lab-kiro`  
-> **検証テーマ:** 既存 Terraform を Kiro に見せず、AWS 実環境の Read-only Discovery から Terraform を再生成し、別環境として再構築できるか  
+> **Status:** Draft v0.1
+> **作成日:** 2026-10-11
+> **対象:** `rails-aws-sre-lab` / `rails-aws-sre-lab-kiro`
+> **検証テーマ:** 既存 Terraform を Kiro に見せず、AWS 実環境の Read-only Discovery から Terraform を再生成し、別環境として再構築できるか
 > **最終成功条件:** `https://kiro.saxon-aws-lab.click/tasks` へ HTTPS でアクセスし、Rails アプリが HTTP 200 で正常表示されること
 
 ---
@@ -53,11 +53,11 @@
 
 # 0. 目的
 
-このドキュメントは、  
+このドキュメントは、
 Kiro を利用して既存 AWS 環境を Brownfield IaC 化する検証結果をまとめたものである
 
-> Brownfield IaC 化：既存の AWS 環境をゼロから新規設計するのではなく、現在稼働しているリソース構成・依存関係・設定を調査し、それを Terraform などの IaC コードとして再構築可能な形に落とし込むこと  
-> 
+> Brownfield IaC 化：既存の AWS 環境をゼロから新規設計するのではなく、現在稼働しているリソース構成・依存関係・設定を調査し、それを Terraform などの IaC コードとして再構築可能な形に落とし込むこと
+>
 > 新規環境をゼロから構築する Greenfield に対し、既存環境を解析してIaC化するアプローチを Brownfield と呼ぶ
 
 ---
@@ -66,7 +66,7 @@ Kiro を利用して既存 AWS 環境を Brownfield IaC 化する検証結果を
 
 ## 1.1 これまでの `rails-aws-sre-lab`
 
-既存の `rails-aws-sre-lab` では、  
+既存の `rails-aws-sre-lab` では、
 Rails アプリを AWS 上で稼働させるための環境を Terraform で管理している
 
 システムの主要構成は以下となる
@@ -114,8 +114,8 @@ Terraform で管理しているリソース一覧:
 
 ## 1.2 今回のテーマ
 
-今回の検証では、  
-**既存 Terraform を Kiro に一切見せずに、システムの機能を再現できる IaC コードを生成させる**  
+今回の検証では、
+**既存 Terraform を Kiro に一切見せずに、システムの機能を再現できる IaC コードを生成させる**
 ことを目標とする
 
 Kiro が参照してよいものは、原則として以下のみとする
@@ -225,7 +225,7 @@ VPC 10.20.0.0/16
 
 ## 4.1 Kiro Subscription
 
-今回の検証では Kiro Pro を利用する  
+今回の検証では Kiro Pro を利用する
 
 サブスクするとクレジットが付与され、  Kiro を実行するとタスクの量に応じてクレジットが消費される
 
@@ -243,7 +243,7 @@ VPC 10.20.0.0/16
 - デプロイ後
 - 最終合計
 
-ダッシュボードやプロフィールからクレジットの使用状況を確認することができる  
+ダッシュボードやプロフィールからクレジットの使用状況を確認することができる
 ※ 画像は検証途中のクレジット状況
 
 ![Kiro Dashboard](./images/11_kiro_brownfield_iac_investigation/kiro_dashboard.png)
@@ -254,7 +254,7 @@ VPC 10.20.0.0/16
 
 ## 4.2 GitHub 接続
 
-https://app.kiro.dev/ にサインインして、  
+https://app.kiro.dev/ にサインインして、
 Settings > Connections からGitHubリポジトリと連携する
 
 ![Connect to GitHub #1](./images/11_kiro_brownfield_iac_investigation/kiro_connect_to_github_1.png)
@@ -267,8 +267,8 @@ Settings > Connections からGitHubリポジトリと連携する
 
 ![Connect to GitHub #4](./images/11_kiro_brownfield_iac_investigation/kiro_connect_to_github_4.png)
 
-既存リポジトリ（`rails-aws-sre-lab`）へのアクセスは許可していないため、  
-Kiro は生成した IaC をプッシュする専用リポジトリにはアクセスできるが、  
+既存リポジトリ（`rails-aws-sre-lab`）へのアクセスは許可していないため、
+Kiro は生成した IaC をプッシュする専用リポジトリにはアクセスできるが、
 既存の Terraform を参照することはできない
 
 ---
@@ -290,13 +290,13 @@ GitHub: Connected
 
 ![Kiro Console Settings](./images/11_kiro_brownfield_iac_investigation/kiro_console_settings.png)
 
-Network configuration Access level: Common dependencies  
-AWS Credentials: 分析用 Role を付与  
+Network configuration Access level: Common dependencies
+AWS Credentials: 分析用 Role を付与
 → [Role: kiro_discovery (kiro.tf)](../terraform/kiro.tf)
 
 ![Kiro Network Settings](./images/11_kiro_brownfield_iac_investigation/kiro_sandbox_settings.png)
 
-当初は Network configuration で `Repository access only` を設定していたが、  
+当初は Network configuration で `Repository access only` を設定していたが、
 AWS API へのアクセス時に 403 が発生した
 
 ![Kiro Network Settings (before)](./images/11_kiro_brownfield_iac_investigation/kiro_sandbox_settings_before.png)
@@ -352,11 +352,12 @@ allowlist 外の任意 Web    アクセス NG
 
 ---
 
-# 5. Discovery Role
+# 5. 分析用 Role
 
 ## 5.1 なぜ専用 Role を作るか
 
-Kiro を AWS Console のログインユーザーと直接結び付けるのではなく、Sandbox から AssumeRole させる
+Kiro を AWS コンソールのログインユーザーと直接結び付けるのではなく、
+Sandbox から AssumeRole させる
 
 ```text
 Kiro Web
@@ -369,85 +370,77 @@ kiro_discovery_role
 AWS APIs
 ```
 
-Kiro の Subscription Account が Discovery 対象を決めるわけではない
-
-対象 AWS Account は、Kiro Sandbox の AWS Credentials に設定した **IAM Role ARN** によって決まる
-
----
-
-## 5.2 Discovery Role の責務
-
-Discovery 用 Role は以下に限定する
-
-```text
-AWS構成を見る
-Resource metadataを見る
-依存関係を理解する
-```
-
-禁止:
-
-```text
-Create
-Update
-Delete
-Terraform apply
-Secret値の取得
-```
+Kiro をサブスクリプションしたアカウントが分析対象になるのではなく、
+対象アカウントは、Sandbox の AWS Credentials に設定した **IAM Role ARN** によって決まる
 
 ---
 
-## 5.3 Trust Policy
+## 5.2 分析用 Role の責務
+
+分析用 Role の権限は以下に限定する
+
+- AWS 構成を見る
+- Resource metadata（リソース設定など）を見る
+- 依存関係を理解する
+
+それに対して、以下の操作は禁止している
+
+- Create
+- Update
+- Delete
+- Terraform apply
+- Secret値の取得
+
+---
+
+## 5.3 信頼ポリシー（Trust Policy）
 
 Role を「誰が Assume できるか」を Trust Policy で制限する
-
-概念:
+イメージは以下のようになる
 
 ```text
-Trust Policy
+信頼ポリシー（Trust Policy）
 = 誰がこのRoleを借りられるか
 
-Permissions Policy
+許可ポリシー（Permissions Policy）
 = 借りたRoleで何ができるか
 ```
 
 今回:
 
-```text
-Principal:
-q.amazonaws.com
+```hcl
+principals {
+      type        = "Service"
+      identifiers = ["q.amazonaws.com"]
+}
 
-Condition:
-sts:SourceIdentity = Kiro User ID
+condition {
+      test     = "StringEquals"
+      variable = "sts:SourceIdentity"
+      values   = [var.kiro_user_id]
+}
 ```
 
 ---
 
-## 5.4 初期 Permission
+## 5.4 初期権限
 
-最初は AWS Managed Policy:
+最初は AWS Managed Policy の `ViewOnlyAccess` を利用し、
+以下の要素を中心に確認させた
 
-```text
-ViewOnlyAccess
-```
+- 使用リソース
+- リソース設定
+- メタデータ
 
-を利用
-
-意図:
-
-- Resource
-- Configuration
-- Metadata
-
-を中心に確認する
-
-`ReadOnlyAccess` のように、サービスによって実データまで読める可能性がある Policy は避ける
+`ReadOnlyAccess` を使用しない理由は、
+サービスによっては実データまで読める可能性がある Policy だったため
 
 ---
 
-# 6. Discovery 開始前の疎通確認
+# 6. 分析開始前の疎通確認
 
-Kiro に最初に実行させたもの:
+まずは AssumeRole が成功するかを確認するために、
+以下のコマンドを Kiro に実行させた
 
 ```bash
 aws sts get-caller-identity
@@ -469,7 +462,7 @@ Kiro
 
 の AssumeRole が成功していることを確認した
 
-> 📷 **IMAGE TODO:** Sandbox AWS Credentials 設定  
+> 📷 **IMAGE TODO:** Sandbox AWS Credentials 設定
 > 📷 **IMAGE TODO:** `sts get-caller-identity` 成功画面
 
 ---
