@@ -17,10 +17,10 @@
 - [2. 検証ルール](#2-検証ルール)
 - [3. 検証フェーズ](#3-検証フェーズ)
 - [4. Kiro 環境の準備](#4-kiro-環境の準備)
-- [5. Discovery Role](#5-discovery-role)
-- [6. Discovery 開始前の疎通確認](#6-discovery-開始前の疎通確認)
+- [5. 分析用 Role](#5-分析用-role)
+- [6. 分析開始前の疎通確認](#6-分析開始前の疎通確認)
 - [7. Discovery Prompt](#7-discovery-prompt)
-- [8. 初回 Discovery 結果](#8-初回-discovery-結果)
+- [8. 初回の分析結果](#8-初回の分析結果)
 - [9. Human Review: Discovery Gap の評価](#9-human-review-discovery-gap-の評価)
 - [10. Supplemental Discovery Policy](#10-supplemental-discovery-policy)
 - [11. 再 Discovery](#11-再-discovery)
@@ -292,7 +292,7 @@ GitHub: Connected
 
 Network configuration Access level: Common dependencies
 AWS Credentials: 分析用 Role を付与
-→ [Role: kiro_discovery (kiro.tf)](../terraform/kiro.tf)
+→ [Role: rails-aws-sre-lab-kiro-discovery-role (kiro.tf)](../terraform/kiro.tf)
 
 ![Kiro Network Settings](./images/11_kiro_brownfield_iac_investigation/kiro_sandbox_settings.png)
 
@@ -373,6 +373,10 @@ AWS APIs
 Kiro をサブスクリプションしたアカウントが分析対象になるのではなく、
 対象アカウントは、Sandbox の AWS Credentials に設定した **IAM Role ARN** によって決まる
 
+→ [Role: rails-aws-sre-lab-kiro-discovery-role (kiro.tf)](../terraform/kiro.tf)
+
+![AWS Credentials](./images/11_kiro_brownfield_iac_investigation/kiro_aws_credentials.png)
+
 ---
 
 ## 5.2 分析用 Role の責務
@@ -389,14 +393,15 @@ Kiro をサブスクリプションしたアカウントが分析対象になる
 - Update
 - Delete
 - Terraform apply
-- Secret値の取得
+- Secret 値の取得
 
 ---
 
 ## 5.3 信頼ポリシー（Trust Policy）
 
-Role を「誰が Assume できるか」を Trust Policy で制限する
-イメージは以下のようになる
+Role を「誰が Assume できるか」を、信頼ポリシー（Trust Policy）で制限する  
+
+以下のようなイメージ
 
 ```text
 信頼ポリシー（Trust Policy）
@@ -406,7 +411,7 @@ Role を「誰が Assume できるか」を Trust Policy で制限する
 = 借りたRoleで何ができるか
 ```
 
-今回:
+[kiro_discovery_assume_role (kiro.tf)](../terraform/kiro.tf)
 
 ```hcl
 principals {
@@ -425,22 +430,20 @@ condition {
 
 ## 5.4 初期権限
 
-最初は AWS Managed Policy の `ViewOnlyAccess` を利用し、
-以下の要素を中心に確認させた
+最初は AWS Managed Policy の `ViewOnlyAccess` を利用し、以下の要素を中心に確認させた
 
 - 使用リソース
 - リソース設定
 - メタデータ
 
-`ReadOnlyAccess` を使用しない理由は、
+※ `ReadOnlyAccess` を使用しない理由は、  
 サービスによっては実データまで読める可能性がある Policy だったため
 
 ---
 
 # 6. 分析開始前の疎通確認
 
-まずは AssumeRole が成功するかを確認するために、
-以下のコマンドを Kiro に実行させた
+まずは AssumeRole が成功するかを確認するために、以下のコマンドを Kiro に実行させた
 
 ```bash
 aws sts get-caller-identity
@@ -452,67 +455,31 @@ aws sts get-caller-identity
 assumed-role/rails-aws-sre-lab-kiro-discovery-role/...
 ```
 
-これにより、
+![AssumeRole result](./images/11_kiro_brownfield_iac_investigation/kiro_assume_role.png)
 
-```text
-Kiro
-→ STS
-→ Discovery Role
-```
-
-の AssumeRole が成功していることを確認した
-
-> 📷 **IMAGE TODO:** Sandbox AWS Credentials 設定
-> 📷 **IMAGE TODO:** `sts get-caller-identity` 成功画面
+これにより、分析用 Role の AssumeRole が成功していることを確認した
 
 ---
 
 # 7. Discovery Prompt
 
-Prompt は GitHub 管理する
+Kiro に既存環境の分析を指示する Prompt は GitHub で管理している
 
-候補:
+[分析用 Prompt](../kiro/prompt/11_kiro_brownfield_iac_discovery.md)
 
-```text
-kiro_prompt/
-└─ 11_kiro_brownfield_iac_prompt.md
-```
+Prompt を渡した上で、Kiro に最初の指示をする
 
-Kiro への最初の指示:
+![AssumeRole result](./images/11_kiro_brownfield_iac_investigation/kiro_generate_terraform.png)
 
-```text
-添付のドキュメントに従って、
-Terraform生成の前段階として、既存のRails + AWS環境をAWS APIから解析してください
+重要なのは、**環境分析 と Terraform 生成 を一気にやらせないこと** であり、  
+IaC の精度を高めるために、以下の要素を分離して評価している
 
-まずは以下のみを実施してください
-
-- Resource Inventory
-- Resource Dependencies
-- Architecture
-- IaC化対象
-- 不明点・不足情報・推測事項
-
-この段階ではTerraformコードを生成しないでください
-AWSリソースへの作成・変更・削除操作も行わないでください
-
-解析結果は人間がレビューします
-明示的に「Terraform生成へ進んでよい」と承認した後に、
-Terraform生成フェーズへ進んでください
-```
-
-重要なのは、**Discovery と Terraform Generation を一気にやらせないこと**
-
-これにより以下を分離評価できる
-
-```text
-AWS環境の理解ミス
-vs
-Terraform生成ミス
-```
+- AWS環境を正しく理解できているか
+- 環境に則した Terraform を高い精度で生成できているか
 
 ---
 
-# 8. 初回 Discovery 結果
+# 8. 初回の分析結果
 
 ## 8.1 Kiro が把握した Architecture
 
@@ -540,7 +507,10 @@ ECS Fargate
   └─ RDS PostgreSQL :5432
 ```
 
-さらに NAT Gateway が存在せず、Private Subnet から以下を VPC Endpoint 経由で利用していることも把握
+![Discovery result 1](./images/11_kiro_brownfield_iac_investigation/kiro_discovery_result_1.png)
+
+NAT Gateway が存在せず、  
+Private Subnet から以下を VPC Endpoint 経由で利用していることも把握できている
 
 ```text
 ecr.api
