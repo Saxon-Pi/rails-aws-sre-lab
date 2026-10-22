@@ -399,7 +399,7 @@ Kiro をサブスクリプションしたアカウントが分析対象になる
 
 ## 5.3 信頼ポリシー（Trust Policy）
 
-Role を「誰が Assume できるか」を、信頼ポリシー（Trust Policy）で制限する  
+Role を「誰が Assume できるか」を、信頼ポリシー（Trust Policy）で制限する
 
 以下のようなイメージ
 
@@ -436,7 +436,7 @@ condition {
 - リソース設定
 - メタデータ
 
-※ `ReadOnlyAccess` を使用しない理由は、  
+※ `ReadOnlyAccess` を使用しない理由は、
 サービスによっては実データまで読める可能性がある Policy だったため
 
 ---
@@ -471,7 +471,7 @@ Prompt を渡した上で、Kiro に最初の指示をする
 
 ![AssumeRole result](./images/11_kiro_brownfield_iac_investigation/kiro_generate_terraform.png)
 
-重要なのは、**環境分析 と Terraform 生成 を一気にやらせないこと** であり、  
+重要なのは、**環境分析 と Terraform 生成 を一気にやらせないこと** であり、
 IaC の精度を高めるために、以下の要素を分離して評価している
 
 - AWS環境を正しく理解できているか
@@ -481,7 +481,7 @@ IaC の精度を高めるために、以下の要素を分離して評価して�
 
 # 8. 初回の分析結果
 
-## 8.1 Kiro が把握した Architecture
+## 8.1 Kiro が把握したアーキテクチャ
 
 Kiro は AWS API のみから以下を把握した
 
@@ -509,7 +509,7 @@ ECS Fargate
 
 ![Discovery result 1](./images/11_kiro_brownfield_iac_investigation/kiro_discovery_result_1.png)
 
-NAT Gateway が存在せず、  
+NAT Gateway が存在せず、
 Private Subnet から以下を VPC Endpoint 経由で利用していることも把握できている
 
 ```text
@@ -524,7 +524,7 @@ S3 Gateway Endpoint
 
 ## 8.2 Resource Inventory
 
-Kiro は主に以下を検出
+Kiro は主に以下のリソースを検出した
 
 - VPC
 - Public Subnet x2
@@ -548,13 +548,15 @@ Kiro は主に以下を検出
 - Route 53
 - ACM
 
+![]()
+
 ---
 
-## 8.3 初回 Discovery の Gap
+## 8.3 初回分析時の調査ギャップ
 
-`ViewOnlyAccess` だけでは、Brownfield IaC 再現に必要な一部情報を取得できなかった
+`ViewOnlyAccess` だけでは、既存環境の再現に必要な一部情報を取得できなかった
 
-拒否された代表 API:
+拒否された代表的な API:
 
 ```text
 iam:GetRole
@@ -565,21 +567,14 @@ elasticloadbalancing:DescribeTargetGroupAttributes
 ecr:DescribeImages
 ```
 
-さらに Application Auto Scaling を初回 Discovery では検出できず、
+さらに Application Auto Scaling を初回分析では検出できず、
+「Auto Scalingなし」と誤判定していた
 
-```text
-Auto Scalingなし
-```
-
-と誤判定していた
-
-ここは重要な検証結果となった
+![]()
 
 ---
 
-# 9. Human Review: Discovery Gap の評価
-
-Human Review で特に問題と判断したのが IAM
+# 9. 人間によるレビュー（調査ギャップの評価）
 
 初回 Kiro は IAM Role の実体を読めなかったため、
 
@@ -589,29 +584,24 @@ SecretsManager GetSecretValue
 kms:Decrypt
 ```
 
-などを推測していた
-
-しかし IAM は Security に直結するため、
-
-```text
-推測を元にTerraform化しない
-```
-
-方針とした
+などを推測していたが、IAM はセキュリティに関わり、
+既存環境の再現をする際にも必要な要素であるため、
+「Kiro の推測を元に Terraform 化しない」方針とした
 
 ---
 
-# 10. Supplemental Discovery Policy
+# 10. 分析 Policy の補完
 
-`ViewOnlyAccess` 自体を広い `ReadOnlyAccess` に変更するのではなく、足りない Read API だけを追加した
-
-目的:
+`ViewOnlyAccess` 自体を権限の大きな `ReadOnlyAccess` に変更するのではなく、
+不足している Read API の実行権限のみ追加した
 
 ```text
 ViewOnlyAccess
 +
 必要最小限の補足Read API
 ```
+
+![kiro_discovery_supplemental (kiro.tf)](../terraform/kiro.tf)
 
 追加対象:
 
@@ -646,19 +636,11 @@ application-autoscaling:DescribeScheduledActions
 application-autoscaling:DescribeScalingActivities
 ```
 
-Terraform Plan:
-
-```text
-Plan: 2 to add, 0 to change, 0 to destroy.
-```
-
-Human Review 後に Apply
-
 ---
 
-# 11. 再 Discovery
+# 11. 再分析
 
-Supplemental Policy 適用後、Kiro に不足項目だけ再調査させた
+補完 Policy 適用後、Kiro に不足項目の再調査をさせた
 
 ## 11.1 IAM
 
@@ -684,7 +666,7 @@ Supplemental Policy 適用後、Kiro に不足項目だけ再調査させた
 secretsmanager:GetSecretValue
 ```
 
-対象は Application が利用する2つの Secret ARN のみに限定
+対象はアプリケーションが利用する2つの Secret ARN のみに限定
 
 ### 重要な修正
 
@@ -807,9 +789,10 @@ Auto Scalingを発見
 
 ---
 
-# 12. 残った Discovery Gap
+# 12. 残りの調査ギャップ
 
-再 Discovery 後も以下は未取得
+再分析後も以下は未取得だが、
+今回の Terraform 化では問題にならないと判断した
 
 ```text
 ecr:BatchGetImage
@@ -817,8 +800,6 @@ ecr:GetLifecyclePolicy
 ecr:GetRepositoryPolicy
 secretsmanager:ListSecrets
 ```
-
-ただし今回の Terraform 化には Blocking ではないと判断
 
 理由:
 
@@ -838,27 +819,25 @@ digest
 
 Lifecycle Policy の有無は不明
 
-ただし Application 起動条件ではないため、新環境では別途方針決定可能
+ただしアプリケーションの起動条件ではないため、新環境では別途方針決定可能
 
 ### `ecr:GetRepositoryPolicy`
 
 Cross Account sharing 等は未確認
 
-今回の同一 Account 内 ECS → ECR 構成では必須情報ではない
+今回の同一アカウント内の ECS → ECR 構成では必須情報ではない
 
 ### `secretsmanager:ListSecrets`
 
-Account 全体の Secret 一覧は取得できない
+アカウント全体の Secret 一覧は取得できない
 
 ただし ECS Task Definition が参照する Application Secret は把握済み
 
 ---
 
-# 13. Terraform Generation への Human Approval
+# 13. Terraform 生成前の承認
 
-Discovery 結果を人間がレビュー
-
-以下の方針を決定
+分析結果を人間がレビューし、以下の方針を決定した
 
 ## DNS / ACM
 
@@ -875,44 +854,44 @@ kiro.saxon-aws-lab.click
 kiro.saxon-aws-lab.click
 ```
 
-Hosted Zone 自体は作らない
+Hosted Zone 自体は新規作成しない
 
 ---
 
 ## ECR / Image
 
-新環境用 ECR Repository は Terraform で新規作成
+新環境用の ECR リポジトリは Terraform で新規作成する
 
-Application Image は Terraform 管理対象外
+アプリケーションの Image は Terraform 管理対象外とする
 
 ```text
-Existing:
+既存リポジトリ:
 rails-aws-sre-lab:ff79378
 
-New:
+新規リポジトリ:
 rails-aws-sre-lab-kiro:ff79378
 ```
 
-最終的には Human が新 Repository に Artifact を投入する
+Kiro が新規リポジトリ作成後、
+人間が新リポジトリに Image を投入する運用にする
 
 ---
 
 ## GitHub
 
-Terraform 成果物:
+Kiro が生成した Terraform は、以下のプロジェクトで管理する
 
-```text
-Saxon-Pi/rails-aws-sre-lab-kiro
-```
+- Saxon-Pi/rails-aws-sre-lab-kiro
+  - https://github.com/Saxon-Pi/rails-aws-sre-lab-kiro
 
-Kiro に以下を要求
+Kiro は以下の流れで IaC 化作業を進める
 
 ```text
 clone
 ↓
 feature branch
 ↓
-Terraform生成
+Terraform 生成
 ↓
 fmt
 ↓
