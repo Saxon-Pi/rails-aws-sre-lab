@@ -910,19 +910,13 @@ default branch への直接 push / merge は禁止
 
 ---
 
-# 14. Kiro による Terraform Generation
+# 14. Kiro による Terraform 生成
 
-Kiro は GitHub repository を clone
+Kiro は GitHub リポジトリを clone し、以下のブランチを作成した
 
-Branch:
+- [feat/kiro-env-terraform](https://github.com/Saxon-Pi/rails-aws-sre-lab-kiro/tree/feat/kiro-env-terraform)
 
-```text
-feat/kiro-env-terraform
-```
-
-Terraform を Resource Responsibility ごとに分割
-
-主要ファイル:
+リソース単位で Terraform を生成している
 
 ```text
 terraform/
@@ -945,18 +939,17 @@ terraform/
 
 ---
 
-# 15. Kiro の Terraform Validation
+# 15. Kiro の Terraform Validation 【要確認】
 
-Kiro Sandbox では `registry.terraform.io` への通信が失敗
+Kiro Sandbox では `registry.terraform.io` への通信に失敗した
 
-一方:
+一方で、
 
 ```text
 releases.hashicorp.com
 ```
 
-には到達可能だった
-
+には到達可能であったため、
 Kiro は自律的に filesystem mirror を構築し、AWS Provider を取得して `terraform init` を成功させた
 
 結果:
@@ -972,7 +965,7 @@ terraform plan
 → Plan: 49 to add, 0 to change, 0 to destroy
 ```
 
-Terraform Apply は実行していない
+※ Terraform Apply は実行していない
 
 ---
 
@@ -980,18 +973,7 @@ Terraform Apply は実行していない
 
 Kiro が自動作成
 
-```text
-PR #1
-feat: Terraform for isolated kiro environment (brownfield IaC)
-```
-
-URL:
-
-```text
-https://github.com/Saxon-Pi/rails-aws-sre-lab-kiro/pull/1
-```
-
-PR:
+[PR #1 feat: Terraform for isolated kiro environment (brownfield IaC)](https://github.com/Saxon-Pi/rails-aws-sre-lab-kiro/pull/1)
 
 ```text
 18 files changed
@@ -999,22 +981,17 @@ PR:
 0 deletions
 ```
 
-Kiro Agent が Author
-
-この時点で:
-
-```text
-terraform apply
-AWS resource mutation
-```
-
-は未実施
+Kiro Agent が Author であり、以下は未実施
+- terraform apply
+- AWS resource mutation
 
 ---
 
-# 17. Original Terraform vs Kiro Generated Terraform
+# 17. オリジナル Terraform vs Kiro 生成 Terraform
 
 ## 17.1 Application Runtime Infrastructure
+
+総じて、Application Runtime Layer の再現精度は非常に高い
 
 | Category | Original | Kiro | 評価 |
 |---|---:|---:|---|
@@ -1047,8 +1024,6 @@ AWS resource mutation
 | CPU Target 50% | ✅ | ✅ | 一致 |
 | Route53 | ✅ | ✅ | 新サブドメイン向けに適切に変更 |
 | ACM | ✅ | ✅ | 新サブドメイン向けに適切に変更 |
-
-Application Runtime Layer の再現精度は非常に高い
 
 ---
 
