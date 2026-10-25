@@ -1029,62 +1029,40 @@ Kiro Agent が Author であり、以下は未実施
 
 ## 17.2 Operations / Observability Layer
 
-Kiro が生成していないもの:
+Kiro が生成していないリソースは以下となる
 
-```text
-CloudWatch Dashboard
-CloudWatch Metric Alarm
-SNS Topic
-Slack Chatbot
-ECS EventBridge Capture
-AWS DevOps Agent
-```
+- CloudWatch Dashboard
+- CloudWatch Metric Alarm
+- SNS Topic
+- Slack Chatbot
+- ECS EventBridge Capture
+- AWS DevOps Agent
 
-これは今回の目的:
-
-```text
-Web ApplicationとしてECS環境を再構築する
-```
-
-には必須ではない
-
-したがって本検証では、
-
-```text
-不足
-```
-
-ではなく、
-
-```text
-Out of Scope / Operations Layer
-```
-
-として評価する
+これは、Web アプリケーションを稼働する ECS 環境を再構築することが目的であり、
+上記のリソースは今回の目的に必須でないためである
 
 ---
 
-# 18. Original Terraform と異なる重要ポイント
+# 18. オリジナルの Terraform と異なるポイント
 
 ## 18.1 Provider Version
 
-Original:
+オリジナルのバージョンは以下
 
 ```hcl
 terraform >= 1.10
 AWS Provider ~> 6.0
 ```
 
-Kiro Generated:
+Kiro が生成したバージョンは以下
 
 ```hcl
 terraform >= 1.5
 AWS Provider ~> 5.60
 ```
 
-Kiro Sandbox で取得可能な Provider を使ったことが理由
-
-Application 動作には直接影響しない可能性が高いが、最終形では Provider version をどうするか Human Review が必要
+差分の原因は、Kiro Sandbox で取得可能な Provider を使用したためである.
+アプリケーションの動作には直接影響しない可能性が高いが、最終形では Provider version の扱いについて人間の判断が必要
 
 ---
 
@@ -1092,21 +1070,20 @@ Application 動作には直接影響しない可能性が高いが、最終形�
 
 Kiro 版は `.terraform.lock.hcl` を `.gitignore` している
 
-再現性の観点では通常、Provider Lock File は Git 管理した方が望ましい
-
-Deploy 前に通常ネットワーク環境で:
+再現性の観点では通常、Provider Lock File は Git 管理した方が望ましいため、
+デプロイ前に通常ネットワーク環境で
 
 ```bash
 terraform init
 ```
 
-を実行し、lock file を生成して commit するか検討する
+を実行し、lock file を生成して commit するかを検討する
 
 ---
 
 ## 18.3 ECS Lifecycle
 
-Original Terraform は CI/CD が Task Definition Revision を更新するため、
+オリジナルの Terraform は CI/CD が Task Definition Revision を更新するため、
 
 ```hcl
 ignore_changes = [
@@ -1114,9 +1091,7 @@ ignore_changes = [
 ]
 ```
 
-を利用
-
-Kiro Generated は、
+を利用しているのに対し、Kiro では
 
 ```hcl
 ignore_changes = [
@@ -1124,29 +1099,26 @@ ignore_changes = [
 ]
 ```
 
-を利用
+を利用している
 
 これは Auto Scaling が Desired Count を管理するため合理的
 
 ただし Kiro 環境で将来 CI/CD を導入する場合、
 
 ```text
-Task Definitionを誰が管理するのか
+Task Definition を誰が管理するのか
 ```
 
 を再設計する必要がある
 
 ---
 
-## 18.4 Live Environment と Original Terraform の差
+## 18.4 現環境 と オリジナル Terraform の差
 
 既存 Terraform の Task Definition image tag と、AWS 上で実際に稼働していた image tag は異なる
+→ GitHub Actions 側が Task Definition Revision を更新し、Terraform がその差分を ignore する構成のため
 
-これは GitHub Actions 側が Task Definition Revision を更新し、Terraform がその差分を ignore する構成のため
-
-Kiro は Terraform ではなく **AWS 実環境を Source of Truth** として解析したため、実稼働 image tag を取得した
-
-これは Brownfield Discovery の利点の一つ
+Kiro は Terraform ではなく **AWS 実環境を Source of Truth** として解析したため、実稼働の image tag を取得した
 
 ---
 
