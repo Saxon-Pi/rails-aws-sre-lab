@@ -1144,15 +1144,7 @@ Kiro は Terraform ではなく **AWS 実環境を Source of Truth** として�
 
 ## 19.2 特に良かった点
 
-### AWS API のみから Dependency を復元
-
-```text
-ALB
-→ ECS
-→ RDS
-```
-
-だけでなく、
+### AWS API のみからリソースの依存関係を再現
 
 ```text
 ECS
@@ -1162,61 +1154,54 @@ ECS
 → CloudWatch Logs
 ```
 
-まで把握
+のような、詳細な依存関係まで把握して IaC に反映できている
 
 ### IAM の推測誤りを再調査で自己修正
 
 ```text
-推測:
-kms:Decryptあり
-
-実測:
-なし
+kms:Decrypt あり
 ```
+
+と推測したものを、実測値から Decrypt なしに修正していた
 
 ### Auto Scaling を追加権限後に発見
 
-権限不足を Human がレビューし、Kiro が再 Discovery することで精度向上
+Kiro の権限不足により分析できていなかった結果を人間がレビュー・権限追加し、
+再分析させることで精度が向上した
 
-### Sandbox制約を自己解決
+### Sandbox 制約を自己解決
 
 Terraform Registry が使えない状況で filesystem mirror を構築し、Plan まで到達
 
 ### GitHub Workflow
 
-TerraformをSandbox内だけに残さず、
+Terraform を Sandbox 内だけに残さず、
 
-```text
-branch
-commit
-push
-PR
-```
+- branch
+- commit
+- push
+- PR
 
-まで実施
+を通して、GitHub 上で管理することができた
 
 ---
 
-# 20. Human Intervention 一覧
-
-現時点で人間が介入したポイント
+# 20. 人間が介入したタスク一覧
 
 | # | Human Intervention | 理由 |
 |---|---|---|
-| 1 | Kiro / GitHub 接続 | Initial setup |
-| 2 | Discovery Role作成 | AWS権限境界 |
-| 3 | NetworkをCommon dependenciesへ変更 | AWS API 403 |
-| 4 | Supplemental Read Policy追加 | IAM/ACM/AutoScaling等のGap |
-| 5 | Discovery結果レビュー | 推測と事実を分離 |
-| 6 | DNS/ACM方針決定 | Existing Hosted Zone再利用 |
-| 7 | ECR Artifact方針決定 | ImageをTerraform管理外にする |
-| 8 | Secret値をHuman-managedと決定 | Security / 汎用性 |
-| 9 | Terraform Generation承認 | Human Gate |
-| 10 | Backend方針決定 | State separation |
-| 11 | Deployment Role設計 | Deploy権限境界 |
-| 12 | Apply最終承認 | 今後実施 |
-
-この一覧は「Kiroだけで全部できた」と誤解させないために重要
+| 1 | Kiro / GitHub 接続 | 初期セットアップ |
+| 2 | 分析用 Role作成 | AWS 権限境界 |
+| 3 | Network を Common dependencies へ変更 | AWS API 403 対策 |
+| 4 | Read Policy の補完 | IAM/ACM/AutoScaling 等の権限不足対策 |
+| 5 | 分析結果のレビュー | 人間による推測と事実の分離 |
+| 6 | DNS/ACM 方針決定 | 既存 Hosted Zone 再利用 |
+| 7 | ECR Artifact 方針決定 | Image を Terraform 管理外にする |
+| 8 | Secret 値の人間管理 | SSM のみ作成させることでセキュリティと汎用性を実現 |
+| 9 | Terraform 生成の承認 | 人間が承認してから実行する |
+| 10 | Backend 方針決定 | State separation |
+| 11 | デプロイ用 Role設計 | AWS 権限境界 |
+| 12 | Apply 最終承認 | 今後実施 |
 
 ---
 
@@ -1260,83 +1245,7 @@ Final acceptance
 
 ---
 
-# 22. RAILS_MASTER_KEY とは
-
-Rails には暗号化された Credential Store がある
-
-```text
-config/credentials.yml.enc
-```
-
-このファイルの中には Application Secret を保存できる
-
-例:
-
-```text
-API key
-外部サービスCredential
-Rails secret
-その他Application設定
-```
-
-`credentials.yml.enc` を復号する鍵が:
-
-```text
-RAILS_MASTER_KEY
-```
-
-である
-
-## 重要
-
-`RAILS_MASTER_KEY` は Docker Image 全体を暗号化する鍵ではない
-
-```text
-RAILS_MASTER_KEYが守るもの
-→ credentials.yml.enc の内容
-
-RAILS_MASTER_KEYが守らないもの
-→ Docker Imageそのもの
-→ Ruby Source Code
-→ Image Pull
-→ Image展開
-```
-
-イメージ:
-
-```text
-Docker Image
-│
-├─ Rails Source
-│
-└─ credentials.yml.enc  ← 暗号化された金庫
-          ▲
-          │ decrypt
-          │
-    RAILS_MASTER_KEY     ← 金庫の鍵
-```
-
-Fargate 起動時:
-
-```text
-Secrets Manager
-     │
-     │ RAILS_MASTER_KEY
-     ▼
-ECS Task
-     │
-     ▼
-Rails Boot
-     │
-     ▼
-credentials.yml.enc decrypt
-```
-
-今回同じ Docker Image を利用する場合、Image 内の `credentials.yml.enc` も同じため、対応する同じ `RAILS_MASTER_KEY` が必要
-
----
-
-# 23. Terraform State 方針
+# 22. Terraform State 方針
 
 既存 S3 Backend Bucket を再利用し、Object Key だけ分離する
 
@@ -1377,9 +1286,9 @@ kiro/terraform.tfstate
 
 ---
 
-# 24. Discovery Role と Deployment Role の分離
+# 23. 分析用 Role と デプロイ用 Role の分離
 
-## Discovery Phase
+## 分析フェーズ
 
 ```text
 Kiro Sandbox AWS Credentials
@@ -1395,7 +1304,7 @@ Read-only
 
 ---
 
-## Deployment Phase
+## デプロイフェーズ
 
 ```text
 Kiro Sandbox AWS Credentials
@@ -1406,26 +1315,26 @@ kiro_deployment_role
 権限:
 
 ```text
-新Kiro環境のResource作成/更新
+新規環境の Resource 作成/更新
 Terraform State
-必要なData Source Read
+必要な Data Source Read
 ```
 
 ただし以下は Kiro に許可しない方針
 
 ```text
-Existing RAILS_MASTER_KEY GetSecretValue
-New Secret value自動投入
-Existing Application Image自動コピー
+既存の RAILS_MASTER_KEY GetSecretValue
+Secret value の自動投入
+既存の Application Image の自動コピー
 ```
 
-これらは Human-managed とする
+これらは人間による管理とする
 
 ---
 
-## Session Separation
+## セッション分離
 
-Roleを同時に利用させない
+分析とデプロイ用の Role を同時に利用はさせない
 
 ```text
 Discovery Session
@@ -1437,7 +1346,7 @@ Deploy Session
 AWS Credentials = kiro_deployment_role
 ```
 
-Deploy終了後:
+デプロイ終了後:
 
 ```text
 kiro_deployment_role
@@ -1449,7 +1358,7 @@ AWS Credentials解除
 
 ---
 
-# 25. 今後の Deployment Runbook
+# 24. 今後のデプロイ用 Runbook
 
 ここからは **未実施**
 
