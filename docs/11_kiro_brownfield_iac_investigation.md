@@ -1,16 +1,16 @@
 <!-- omit in toc -->
-# 11. Kiro Brownfield IaC 検証記録 / 実務 Runbook
+# 11. Kiro による Terraform 生成検証記録 / 実用的 Runbook
 
 > **Status:** Draft v0.1
 > **作成日:** 2026-10-11
 > **対象:** `rails-aws-sre-lab` / `rails-aws-sre-lab-kiro`
-> **検証テーマ:** 既存 Terraform を Kiro に見せず、AWS 実環境の Read-only Discovery から Terraform を再生成し、別環境として再構築できるか
+> **検証テーマ:** 既存 Terraform を Kiro に見せず、AWS 実環境の Read-only な分析から Terraform を再生成し、別環境として再構築できるか
 > **最終成功条件:** `https://kiro.saxon-aws-lab.click/tasks` へ HTTPS でアクセスし、Rails アプリが HTTP 200 で正常表示されること
 
 ---
 
 <!-- omit in toc -->
-## 目次
+# 目次
 
 - [0. 目的](#0-目的)
 - [1. 検証の背景](#1-検証の背景)
@@ -19,25 +19,24 @@
 - [4. Kiro 環境の準備](#4-kiro-環境の準備)
 - [5. 分析用 Role](#5-分析用-role)
 - [6. 分析開始前の疎通確認](#6-分析開始前の疎通確認)
-- [7. Discovery Prompt](#7-discovery-prompt)
+- [7. 分析指示 Prompt](#7-分析指示-prompt)
 - [8. 初回の分析結果](#8-初回の分析結果)
-- [9. Human Review: Discovery Gap の評価](#9-human-review-discovery-gap-の評価)
-- [10. Supplemental Discovery Policy](#10-supplemental-discovery-policy)
-- [11. 再 Discovery](#11-再-discovery)
-- [12. 残った Discovery Gap](#12-残った-discovery-gap)
-- [13. Terraform Generation への Human Approval](#13-terraform-generation-への-human-approval)
-- [14. Kiro による Terraform Generation](#14-kiro-による-terraform-generation)
-- [15. Kiro の Terraform Validation](#15-kiro-の-terraform-validation)
+- [9. 人間によるレビュー（調査ギャップの評価）](#9-人間によるレビュー調査ギャップの評価)
+- [10. 分析 Policy の補完](#10-分析-policy-の補完)
+- [11. 再分析](#11-再分析)
+- [12. 残りの調査ギャップ](#12-残りの調査ギャップ)
+- [13. Terraform 生成前の承認](#13-terraform-生成前の承認)
+- [14. Kiro による Terraform 生成](#14-kiro-による-terraform-生成)
+- [15. Kiro の Terraform Validation 【要確認】](#15-kiro-の-terraform-validation-要確認)
 - [16. GitHub PR](#16-github-pr)
-- [17. Original Terraform vs Kiro Generated Terraform](#17-original-terraform-vs-kiro-generated-terraform)
-- [18. Original Terraform と異なる重要ポイント](#18-original-terraform-と異なる重要ポイント)
+- [17. オリジナル Terraform vs Kiro 生成 Terraform](#17-オリジナル-terraform-vs-kiro-生成-terraform)
+- [18. オリジナルの Terraform と異なるポイント](#18-オリジナルの-terraform-と異なるポイント)
 - [19. Kiro の精度評価](#19-kiro-の精度評価)
-- [20. Human Intervention 一覧](#20-human-intervention-一覧)
+- [20. 人間が介入したタスク一覧](#20-人間が介入したタスク一覧)
 - [21. Secret / Artifact Responsibility](#21-secret--artifact-responsibility)
-- [22. RAILS\_MASTER\_KEY とは](#22-rails_master_key-とは)
-- [23. Terraform State 方針](#23-terraform-state-方針)
-- [24. Discovery Role と Deployment Role の分離](#24-discovery-role-と-deployment-role-の分離)
-- [25. 今後の Deployment Runbook](#25-今後の-deployment-runbook)
+- [22. Terraform State 方針](#22-terraform-state-方針)
+- [23. 分析用 Role と デプロイ用 Role の分離](#23-分析用-role-と-デプロイ用-role-の分離)
+- [24. 今後のデプロイ用 Runbook](#24-今後のデプロイ用-runbook)
 - [26. Kiro Deployment Prompt の設計方針](#26-kiro-deployment-prompt-の設計方針)
 - [27. Terraform初回Deployの論点](#27-terraform初回deployの論点)
 - [28. Apply 前の追加 Review 項目](#28-apply-前の追加-review-項目)
@@ -66,7 +65,7 @@ Kiro を利用して既存 AWS 環境を Brownfield IaC 化する検証結果を
 
 ## 1.1 これまでの `rails-aws-sre-lab`
 
-既存の `rails-aws-sre-lab` では、
+既存の `rails-aws-sre-lab` では、  
 Rails アプリを AWS 上で稼働させるための環境を Terraform で管理している
 
 システムの主要構成は以下となる
@@ -94,7 +93,7 @@ ECS Fargate
 RDS PostgreSQL
 ```
 
-Terraform で管理しているリソース一覧:
+[Terraform で管理しているリソース一覧:](../terraform/)
 
 - ECS Fargate (ARM64, CPU 256 / Memory 512 MiB)
 - ECS Application Auto Scaling
@@ -114,7 +113,7 @@ Terraform で管理しているリソース一覧:
 
 ## 1.2 今回のテーマ
 
-今回の検証では、
+今回の検証では、  
 **既存 Terraform を Kiro に一切見せずに、システムの機能を再現できる IaC コードを生成させる**
 ことを目標とする
 
@@ -126,7 +125,7 @@ Kiro が参照してよいものは、原則として以下のみとする
 Kiro に以下を実施させる
 
 ```text
-AWS API による環境調査（Read-only Discovery）
+AWS API による環境調査（Read-only 分析）
         ↓
 リソースの一覧化
         ↓
@@ -146,7 +145,7 @@ Kiro が生成した IaC の人間によるレビュー・承認
         ↓
 デプロイ（apply）
         ↓
-End-to-End バリデーション・テスト
+E2E テスト
 ```
 
 ---
@@ -155,7 +154,7 @@ End-to-End バリデーション・テスト
 
 ## 2.1 Kiro に見せないもの
 
-以下は IaC 生成時に模範解答として使用される可能性があるため、Kiro には見せない
+以下は IaC 生成時に模範解答として参考にされる可能性があるため、Kiro には見せない
 
 - 既存 `rails-aws-sre-lab` の Terraform
   - https://github.com/Saxon-Pi/rails-aws-sre-lab/tree/develop/terraform
@@ -163,7 +162,7 @@ End-to-End バリデーション・テスト
 - Terraform の設計意図などを記載したメモやドキュメント類
 - Rails ソースコード
 
-Kiro が生成した IaC をプッシュする際は、専用プライベートリポジトリを使用させる
+Kiro に生成した IaC をプッシュさせる際は、専用のプライベートリポジトリを使用させる
 
 - Saxon-Pi/rails-aws-sre-lab-kiro
   - https://github.com/Saxon-Pi/rails-aws-sre-lab-kiro
@@ -237,13 +236,14 @@ VPC 10.20.0.0/16
 
 今後、以下のタイミングでクレジットを記録する
 
-- AWS環境の解析前後
+- AWS 環境の解析前後
 - Terraform 生成後
 - terraform plan と修正後
 - デプロイ後
 - 最終合計
 
-ダッシュボードやプロフィールからクレジットの使用状況を確認することができる
+ダッシュボードやプロフィールからクレジットの使用状況を確認することができる  
+
 ※ 画像は検証途中のクレジット状況
 
 ![Kiro Dashboard](./images/11_kiro_brownfield_iac_investigation/kiro_dashboard.png)
@@ -254,22 +254,21 @@ VPC 10.20.0.0/16
 
 ## 4.2 GitHub 接続
 
-https://app.kiro.dev/ にサインインして、
+https://app.kiro.dev/ にサインインして、  
 Settings > Connections からGitHubリポジトリと連携する
 
 ![Connect to GitHub #1](./images/11_kiro_brownfield_iac_investigation/kiro_connect_to_github_1.png)
 
 ![Connect to GitHub #2](./images/11_kiro_brownfield_iac_investigation/kiro_connect_to_github_2.png)
 
-今回は専用プライベートリポジトリ（rails-aws-sre-lab-kiro）のみ連携する
+今回はプッシュ専用のプライベートリポジトリ（rails-aws-sre-lab-kiro）のみ連携する
 
 ![Connect to GitHub #3](./images/11_kiro_brownfield_iac_investigation/kiro_connect_to_github_3.png)
 
 ![Connect to GitHub #4](./images/11_kiro_brownfield_iac_investigation/kiro_connect_to_github_4.png)
 
-既存リポジトリ（`rails-aws-sre-lab`）へのアクセスは許可していないため、
-Kiro は生成した IaC をプッシュする専用リポジトリにはアクセスできるが、
-既存の Terraform を参照することはできない
+既存リポジトリ（`rails-aws-sre-lab`）へのアクセスは許可していないため、  
+Kiro は生成した IaC をプッシュする専用リポジトリにはアクセスできるが、既存の Terraform を参照することはできない
 
 ---
 
@@ -290,13 +289,14 @@ GitHub: Connected
 
 ![Kiro Console Settings](./images/11_kiro_brownfield_iac_investigation/kiro_console_settings.png)
 
-Network configuration Access level: Common dependencies
-AWS Credentials: 分析用 Role を付与
+Network configuration Access level: Common dependencies  
+
+AWS Credentials: 分析用 Role を付与  
 → [Role: rails-aws-sre-lab-kiro-discovery-role (kiro.tf)](../terraform/kiro.tf)
 
 ![Kiro Network Settings](./images/11_kiro_brownfield_iac_investigation/kiro_sandbox_settings.png)
 
-当初は Network configuration で `Repository access only` を設定していたが、
+当初は Network configuration で `Repository access only` を設定していたが、  
 AWS API へのアクセス時に 403 が発生した
 
 ![Kiro Network Settings (before)](./images/11_kiro_brownfield_iac_investigation/kiro_sandbox_settings_before.png)
@@ -319,17 +319,11 @@ Repository access only
 └─ AWS API          NG
 ```
 
-Kiro 自身が managed proxy / allowlist による通信制限と切り分けた
+Kiro 自身がプロキシの許可リスト（allowlist）による通信制限と切り分けた
 
 ![kiro_discovery_4(repository_access_only)](./images/11_kiro_brownfield_iac_investigation/kiro_discovery_4(repository_access_only).png)
 
-そのため Network configuration を変更
-
-```text
-Repository access only
-        ↓
-Common dependencies
-```
+そのため Network configuration を Common dependencies に変更
 
 ![Kiro Network Settings 1 (Common dependencies)](./images/11_kiro_brownfield_iac_investigation/kiro_network_settings_1(common_dependencies).png)
 
@@ -340,7 +334,7 @@ Common dependencies
 ```text
 GitHub                   アクセス OK
 *.amazonaws.com          アクセス OK
-一般的な開発依存サービス   アクセス OK
+一般的な開発依存サービス     アクセス OK
 allowlist 外の任意 Web    アクセス NG
 ```
 
@@ -356,7 +350,7 @@ allowlist 外の任意 Web    アクセス NG
 
 ## 5.1 なぜ専用 Role を作るか
 
-Kiro を AWS コンソールのログインユーザーと直接結び付けるのではなく、
+Kiro を AWS コンソールのログインユーザーと直接結び付けるのではなく、  
 Sandbox から AssumeRole させる
 
 ```text
@@ -370,7 +364,7 @@ kiro_discovery_role
 AWS APIs
 ```
 
-Kiro をサブスクリプションしたアカウントが分析対象になるのではなく、
+Kiro をサブスクリプションしたアカウントが分析対象になるのではなく、  
 対象アカウントは、Sandbox の AWS Credentials に設定した **IAM Role ARN** によって決まる
 
 → [Role: rails-aws-sre-lab-kiro-discovery-role (kiro.tf)](../terraform/kiro.tf)
@@ -430,14 +424,15 @@ condition {
 
 ## 5.4 初期権限
 
-最初は AWS Managed Policy の `ViewOnlyAccess` を利用し、以下の要素を中心に確認させた
+最初は AWS Managed Policy の `ViewOnlyAccess` を利用し、  
+以下の要素を中心に確認させた
 
 - 使用リソース
 - リソース設定
 - メタデータ
 
-※ `ReadOnlyAccess` を使用しない理由は、
-サービスによっては実データまで読める可能性がある Policy だったため
+※ `ReadOnlyAccess` を使用しない理由は、  
+サービスによっては実データまで読める可能性がある Policy のため
 
 ---
 
@@ -461,20 +456,16 @@ assumed-role/rails-aws-sre-lab-kiro-discovery-role/...
 
 ---
 
-# 7. Discovery Prompt
+# 7. 分析指示 Prompt
 
-Kiro に既存環境の分析を指示する Prompt は GitHub で管理している
-
-[分析用 Prompt](../kiro/prompt/11_kiro_brownfield_iac_discovery.md)
-
-Prompt を渡した上で、Kiro に最初の指示をする
+Kiro に [既存環境の分析を指示する Prompt](../kiro/prompt/11_kiro_brownfield_iac_discovery.md) を渡した上で、AWS 環境の分析指示をする
 
 ![AssumeRole result](./images/11_kiro_brownfield_iac_investigation/kiro_generate_terraform.png)
 
-重要なのは、**環境分析 と Terraform 生成 を一気にやらせないこと** であり、
-IaC の精度を高めるために、以下の要素を分離して評価している
+**環境分析 と Terraform 生成 を一度にやらせないこと** で、  
+IaC の精度を高めつつ、以下の要素を分離して評価している
 
-- AWS環境を正しく理解できているか
+- AWS 環境を正しく理解できているか
 - 環境に則した Terraform を高い精度で生成できているか
 
 ---
@@ -1358,11 +1349,10 @@ AWS Credentials解除
 
 ---
 
+>ここからは **未実施**
+>実際の作業時に本ドキュメントを更新する
+
 # 24. 今後のデプロイ用 Runbook
-
-ここからは **未実施**
-
-実際の作業時に本ドキュメントを更新する
 
 ---
 
