@@ -25,7 +25,7 @@
 - [10. 分析 Policy の補完](#10-分析-policy-の補完)
 - [11. 再分析](#11-再分析)
 - [12. 残りの調査ギャップ](#12-残りの調査ギャップ)
-- [13. Terraform 生成前の承認](#13-terraform-生成前の承認)
+- [13. Terraform 生成前の人間による承認](#13-terraform-生成前の人間による承認)
 - [14. Kiro による Terraform 生成](#14-kiro-による-terraform-生成)
 - [15. Kiro の Terraform Validation 【要確認】](#15-kiro-の-terraform-validation-要確認)
 - [16. GitHub PR](#16-github-pr)
@@ -500,16 +500,14 @@ ECS Fargate
 
 ![Discovery result 1](./images/11_kiro_brownfield_iac_investigation/kiro_discovery_result_1.png)
 
-NAT Gateway が存在せず、
+NAT Gateway が存在せず、  
 Private Subnet から以下を VPC Endpoint 経由で利用していることも把握できている
 
-```text
-ecr.api
-ecr.dkr
-logs
-secretsmanager
-S3 Gateway Endpoint
-```
+- ecr.api
+- ecr.dkr
+- logs
+- secretsmanager
+- S3 Gateway Endpoint
 
 ---
 
@@ -539,7 +537,7 @@ Kiro は主に以下のリソースを検出した
 - Route 53
 - ACM
 
-![]()
+![画像]()
 
 ---
 
@@ -547,85 +545,77 @@ Kiro は主に以下のリソースを検出した
 
 `ViewOnlyAccess` だけでは、既存環境の再現に必要な一部情報を取得できなかった
 
-拒否された代表的な API:
+拒否された代表的な API は以下となる
 
-```text
-iam:GetRole
-iam:GetRolePolicy
-acm:DescribeCertificate
-elasticloadbalancing:DescribeRules
-elasticloadbalancing:DescribeTargetGroupAttributes
-ecr:DescribeImages
-```
+- iam:GetRole
+- iam:GetRolePolicy
+- acm:DescribeCertificate
+- elasticloadbalancing:DescribeRules
+- elasticloadbalancing:DescribeTargetGroupAttributes
+- ecr:DescribeImages
 
-さらに Application Auto Scaling を初回分析では検出できず、
+さらに Application Auto Scaling を初回分析では検出できず、  
 「Auto Scalingなし」と誤判定していた
 
-![]()
+![画像]()
 
 ---
 
 # 9. 人間によるレビュー（調査ギャップの評価）
 
-初回 Kiro は IAM Role の実体を読めなかったため、
+初回では、 Kiro は IAM Role の実体を読めなかったため、
 
-```text
-ecs-tasks.amazonaws.com を trust
-SecretsManager GetSecretValue
-kms:Decrypt
-```
+- ecs-tasks.amazonaws.com を trust
+- SecretsManager GetSecretValue
+- kms:Decrypt
 
-などを推測していたが、IAM はセキュリティに関わり、
-既存環境の再現をする際にも必要な要素であるため、
-「Kiro の推測を元に Terraform 化しない」方針とした
+などを Kiro が推測していた
+
+これらの要素は既存環境の再現にも必要なものであるため、  
+「Kiro の推測で Terraform 化しない」方針とし、人間が設定・入力する運用とする  
+（セキュリティ情報のため IaC に直接記述は NG）
 
 ---
 
 # 10. 分析 Policy の補完
 
-`ViewOnlyAccess` 自体を権限の大きな `ReadOnlyAccess` に変更するのではなく、
-不足している Read API の実行権限のみ追加した
+`ViewOnlyAccess` 自体を権限の大きな `ReadOnlyAccess` に変更するのではなく、  
+不足している API の実行権限のみを追加する
 
 ```text
 ViewOnlyAccess
 +
-必要最小限の補足Read API
+必要最小限の API 実行権限(Read-only)
 ```
 
-![kiro_discovery_supplemental (kiro.tf)](../terraform/kiro.tf)
+[kiro_discovery_supplemental (kiro.tf)](../terraform/kiro.tf)
 
 追加対象:
 
 ### IAM
 
-```text
-iam:GetRole
-iam:GetRolePolicy
-iam:ListRolePolicies
-iam:ListAttachedRolePolicies
-iam:ListRoleTags
-iam:GetPolicy
-iam:GetPolicyVersion
-iam:ListPolicyVersions
-```
+- iam:GetRole
+- iam:GetRolePolicy
+- iam:ListRolePolicies
+- iam:ListAttachedRolePolicies
+- iam:ListRoleTags
+- iam:GetPolicy
+- iam:GetPolicyVersion
+- iam:ListPolicyVersions
 
 ### ACM / ALB / ECR
 
-```text
-acm:DescribeCertificate
-elasticloadbalancing:DescribeRules
-elasticloadbalancing:DescribeTargetGroupAttributes
-ecr:DescribeImages
-```
+- acm:DescribeCertificate
+- elasticloadbalancing:DescribeRules
+- elasticloadbalancing:DescribeTargetGroupAttributes
+- ecr:DescribeImages
 
 ### Application Auto Scaling
 
-```text
-application-autoscaling:DescribeScalableTargets
-application-autoscaling:DescribeScalingPolicies
-application-autoscaling:DescribeScheduledActions
-application-autoscaling:DescribeScalingActivities
-```
+- application-autoscaling:DescribeScalableTargets
+- application-autoscaling:DescribeScalingPolicies
+- application-autoscaling:DescribeScheduledActions
+- application-autoscaling:DescribeScalingActivities
 
 ---
 
@@ -649,13 +639,15 @@ application-autoscaling:DescribeScalingActivities
 }
 ```
 
+![画像]()
+
 ### Inline Policy
 
 実測:
 
-```text
-secretsmanager:GetSecretValue
-```
+- secretsmanager:GetSecretValue
+
+![画像]()
 
 対象はアプリケーションが利用する2つの Secret ARN のみに限定
 
@@ -677,31 +669,23 @@ GetSecretValue のみ
 
 つまり、**追加権限によって Kiro 自身が推測誤りを修正できた**
 
+![画像]()
+
 ---
 
 ## 11.2 ACM
 
-既存 Certificate:
+既存 Certificate は、
 
-```text
-app.saxon-aws-lab.click
-```
+- app.saxon-aws-lab.click
 
-SAN:
-
-```text
-app.saxon-aws-lab.click のみ
-```
-
-Wildcard ではない
-
-したがって新環境:
+しか存在しないため、新環境用の Certificate の新規発行が必要と判断
 
 ```text
 kiro.saxon-aws-lab.click
 ```
 
-用 Certificate は新規発行が必要と確定
+![画像]()
 
 ---
 
@@ -717,9 +701,9 @@ HTTPS :443
 → default forward Target Group
 ```
 
-追加の Host / Path Rule は存在しない
+追加の Host / Path Rule は存在しないため、新規作成が必要と判断
 
-Target Group Attributes も実測できた
+![画像]()
 
 ---
 
@@ -743,7 +727,7 @@ scanOnPush = true
 
 ## 11.5 Auto Scaling
 
-再 Discovery により、初回で見逃していた Application Auto Scaling を発見
+再分析により、初回で見逃していた Application Auto Scaling を発見
 
 ```text
 Min: 1
@@ -762,21 +746,24 @@ Scale In Cooldown:
 300 sec
 ```
 
-これは今回の Brownfield 検証で特に重要なポイント
+分析（読み取り）に必要な権限を付与したことで、  
+Kiro の分析結果の成否が変わった重要なポイントとなる
 
 ```text
 初回:
-Auto Scalingなし と誤判定
+Kiro は「Auto Scalingなし」と誤判定
 
-Human Review:
+人間によるレビュー:
 権限不足の可能性を指摘
 
-Supplemental Permission:
+Auto Scaling の読み取り権限を補完:
 Application Auto Scaling Describe
 
-再Discovery:
-Auto Scalingを発見
+再分析:
+Auto Scaling を発見
 ```
+
+![画像]()
 
 ---
 
@@ -785,12 +772,10 @@ Auto Scalingを発見
 再分析後も以下は未取得だが、
 今回の Terraform 化では問題にならないと判断した
 
-```text
-ecr:BatchGetImage
-ecr:GetLifecyclePolicy
-ecr:GetRepositoryPolicy
-secretsmanager:ListSecrets
-```
+- ecr:BatchGetImage
+- ecr:GetLifecyclePolicy
+- ecr:GetRepositoryPolicy
+- secretsmanager:ListSecrets
 
 理由:
 
@@ -826,7 +811,7 @@ Cross Account sharing 等は未確認
 
 ---
 
-# 13. Terraform 生成前の承認
+# 13. Terraform 生成前の人間による承認
 
 分析結果を人間がレビューし、以下の方針を決定した
 
@@ -851,9 +836,8 @@ Hosted Zone 自体は新規作成しない
 
 ## ECR / Image
 
-新環境用の ECR リポジトリは Terraform で新規作成する
-
-アプリケーションの Image は Terraform 管理対象外とする
+新環境用の ECR リポジトリは Terraform で新規作成する  
+※ アプリケーションの Image は Terraform 管理対象外とする
 
 ```text
 既存リポジトリ:
@@ -863,7 +847,7 @@ rails-aws-sre-lab:ff79378
 rails-aws-sre-lab-kiro:ff79378
 ```
 
-Kiro が新規リポジトリ作成後、
+運用のしやすさを考慮して、Kiro が新規リポジトリ作成後、  
 人間が新リポジトリに Image を投入する運用にする
 
 ---
@@ -897,7 +881,7 @@ push
 Pull Request
 ```
 
-default branch への直接 push / merge は禁止
+default branch への直接 push / merge は禁止とする
 
 ---
 
